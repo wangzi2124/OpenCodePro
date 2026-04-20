@@ -13,6 +13,9 @@ export const AgentType = {
   BASH: 'bash',
   WEB: 'web',
   RESEARCH: 'research',
+  EDIT: 'edit',
+  GLOB: 'glob',
+  GREP: 'grep',
   CUSTOM: 'custom'
 }
 

@@ -17,7 +17,7 @@ export const useAgentStore = create((set, get) => ({
       status: AgentStatus.IDLE,
       systemPrompt: 'You are a helpful AI coding assistant. Coordinate with auxiliary agents to complete complex tasks.',
       modelId: 'gpt-4',
-      tools: ['read', 'write', 'search', 'bash', 'web'],
+      tools: ['read', 'write', 'search', 'bash', 'web', 'edit', 'glob', 'grep'],
       createdAt: Date.now(),
       messages: [],
       metadata: config.metadata || {}
@@ -39,7 +39,15 @@ export const useAgentStore = create((set, get) => ({
       [AgentType.BASH]: 'Bash Agent',
       [AgentType.WEB]: 'Web Agent',
       [AgentType.RESEARCH]: 'Research Agent',
+      [AgentType.EDIT]: 'Edit Agent',
+      [AgentType.GLOB]: 'Glob Agent',
+      [AgentType.GREP]: 'Grep Agent',
       [AgentType.CUSTOM]: config.name || 'Custom Agent'
+    }
+    const defaultTools = {
+      [AgentType.EDIT]: ['read', 'write', 'edit'],
+      [AgentType.GLOB]: ['read', 'glob'],
+      [AgentType.GREP]: ['read', 'grep']
     }
     const agent = {
       id,
@@ -49,7 +57,7 @@ export const useAgentStore = create((set, get) => ({
       parentId: config.parentId || mainAgentId,
       modelId: config.modelId || 'gpt-4',
       systemPrompt: config.systemPrompt || '',
-      tools: config.tools || [],
+      tools: config.tools || defaultTools[type] || [],
       createdAt: Date.now(),
       messages: [],
       result: null,
