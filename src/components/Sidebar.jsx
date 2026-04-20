@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAgentStore, useModelStore, useRagStore } from '../store'
 import { AgentType, AgentStatus, ModelProvider } from '../types'
 import './Sidebar.css'
@@ -20,6 +20,13 @@ function Sidebar() {
   const addModel = useModelStore(state => state.addModel)
   const updateModel = useModelStore(state => state.updateModel)
   const removeModel = useModelStore(state => state.removeModel)
+  const getActiveModel = useModelStore(state => state.getActiveModel)
+
+  const [activeModelData, setActiveModelData] = useState(null)
+
+  useEffect(() => {
+    setActiveModelData(getActiveModel())
+  }, [activeModelId, getActiveModel])
 
   const allModels = [...models, ...customModels]
   
@@ -182,6 +189,13 @@ function Sidebar() {
             <div className="panel-header">
               <h3>Model Settings</h3>
             </div>
+            
+            {activeModelData && (
+              <div className="active-model-banner">
+                <span className="active-label">当前激活:</span>
+                <span className="active-name">{activeModelData.name}</span>
+              </div>
+            )}
             
             <div className="model-list-section">
               {allModels.map(model => (

@@ -430,3 +430,20 @@
   border-color: var(--accent-primary);
   color: var(--accent-primary);
 }
+
+.active-model-banner {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.active-model-banner .active-name {
+  font-weight: 600;
+}
