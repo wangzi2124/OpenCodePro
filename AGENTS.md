@@ -6,6 +6,8 @@
 npm run dev       # Dev server at http://localhost:5173
 npm run build     # Build to dist/
 npm run preview  # Preview production build
+npm run server   # Tool API server (port 3001)
+npm run start   # Run both dev + server
 ```
 
 ## Tech Stack
