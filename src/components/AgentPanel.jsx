@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAgentStore, useModelStore } from '../store'
 import { AgentStatus } from '../types'
 import './AgentPanel.css'
@@ -12,8 +12,13 @@ function AgentPanel() {
   const updateAgentStatus = useAgentStore(state => state.updateAgentStatus)
   const killAgent = useAgentStore(state => state.killAgent)
   const getActiveModel = useModelStore(state => state.getActiveModel)
+  const activeModelId = useModelStore(state => state.activeModelId)
   
-  const activeModel = getActiveModel()
+  const [activeModel, setActiveModel] = useState(null)
+
+  useEffect(() => {
+    setActiveModel(getActiveModel())
+  }, [activeModelId, getActiveModel])
 
   const tabs = [
     { id: 'config', label: 'Config' },
