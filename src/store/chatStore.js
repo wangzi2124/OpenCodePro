@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
-import { MessageRole } from '../types'
+import { MessageRole, ModelProvider } from '../types'
 import { useRagStore } from './ragStore'
 import { useAgentStore } from './agentStore'
 import { useModelStore } from './modelStore'
@@ -95,7 +95,7 @@ export const useChatStore = create((set, get) => ({
       const agentStore = useAgentStore.getState()
       const mainAgent = agentStore.getMainAgent()
       
-      const response = await mockLLMResponse(fullPrompt, chatHistory, activeModel, mainAgent)
+      const response = await callLLM(fullPrompt, chatHistory, activeModel, mainAgent)
       
       addMessage(MessageRole.ASSISTANT, response, agentStore.mainAgentId, { modelId: activeModel?.id })
       
@@ -109,16 +109,74 @@ export const useChatStore = create((set, get) => ({
   }
 }))
 
-async function mockLLMResponse(prompt, history, model, agent) {
-  await new Promise(resolve => setTimeout(resolve, 500))
+async function callLLM(prompt, history, model, agent) {
+  if (!model) {
+    return "No model selected. Please configure a model in Settings."
+  }
   
-  const responseTemplates = [
-    "I've analyzed your request and can help with that. Let me break this down into tasks for my auxiliary agents.",
-    "I understand you need assistance with this. I'll coordinate with specialized agents to complete your request efficiently.",
-    "Your request has been received. I'm dispatching task-specific agents to help you.",
-    "I'll help you with this. Based on the complexity, I'll use multiple specialized agents."
-  ]
+  const isOllama = model.provider === ModelProvider.OLLAMA
+  const isOpenAI = model.provider === ModelProvider.OPENAI
   
-  const randomIndex = Math.floor(Math.random() * responseTemplates.length)
-  return responseTemplates[randomIndex] + "\n\n" + `[Using model: ${model?.name || 'default'}]\n[Main Agent: ${agent?.name || 'Agent'}]`
+  if (isOllama) {
+    const endpoint = model.endpoint || 'http://localhost:11434'
+    const modelName = model.model || 'llama2'
+    
+    const messages = history.map(m => ({
+      role: m.role === MessageRole.USER ? 'user' : m.role === MessageRole.ASSISTANT ? 'assistant' : 'system',
+      content: m.content
+    }))
+    messages.push({ role: 'user', content: prompt })
+    
+    const response = await fetch(`${endpoint}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: modelName,
+        messages: messages,
+        stream: false
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    return data.message?.content || data.response || "No response from model"
+  }
+  
+  if (isOpenAI) {
+    if (!model.apiKey) {
+      return "OpenAI API key not configured. Please add your API key in Settings."
+    }
+    
+    const messages = history.map(m => ({
+      role: m.role === MessageRole.USER ? 'user' : m.role === MessageRole.ASSISTANT ? 'assistant' : 'system',
+      content: m.content
+    }))
+    messages.push({ role: 'user', content: prompt })
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${model.apiKey}`
+      },
+      body: JSON.stringify({
+        model: model.id === 'gpt-4' ? 'gpt-4' : model.id === 'gpt-4-turbo' ? 'gpt-4-turbo' : 'gpt-3.5-turbo',
+        messages: messages,
+        temperature: model.temperature || 0.7,
+        max_tokens: model.maxTokens || 4096
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`)
+    }
+    
+    const data = await response.json()
+    return data.choices?.[0]?.message?.content || "No response from model"
+  }
+  
+  return `Model ${model.name} is not yet supported. Please use Ollama or configure OpenAI API key.`
 }
