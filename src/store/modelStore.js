@@ -1,0 +1,45 @@
+import { create } from 'zustand'
+import { ModelProvider } from '../types'
+
+const defaultModels = [
+  { id: 'gpt-4', name: 'GPT-4', provider: ModelProvider.OPENAI, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
+  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: ModelProvider.OPENAI, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
+  { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: ModelProvider.OPENAI, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
+  { id: 'claude-3-opus', name: 'Claude 3 Opus', provider: ModelProvider.ANTHROPIC, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
+  { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', provider: ModelProvider.ANTHROPIC, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
+  { id: 'gemini-pro', name: 'Gemini Pro', provider: ModelProvider.GEMINI, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
+  { id: 'ollama-llama2', name: 'Llama 2 (Ollama)', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'llama2', temperature: 0.7 },
+  { id: 'ollama-codellama', name: 'CodeLlama (Ollama)', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'codellama', temperature: 0.7 }
+]
+
+export const useModelStore = create((set, get) => ({
+  models: defaultModels,
+  activeModelId: 'gpt-4',
+  customModels: [],
+
+  setActiveModel: (modelId) => set({ activeModelId: modelId }),
+
+  addModel: (model) => set((state) => ({
+    customModels: [...state.customModels, { ...model, id: `custom-${Date.now()}` }]
+  })),
+
+  updateModel: (modelId, updates) => set((state) => ({
+    models: state.models.map(m => m.id === modelId ? { ...m, ...updates } : m),
+    customModels: state.customModels.map(m => m.id === modelId ? { ...m, ...updates } : m)
+  })),
+
+  removeModel: (modelId) => set((state) => ({
+    models: state.models.filter(m => m.id !== modelId),
+    customModels: state.customModels.filter(m => m.id !== modelId)
+  })),
+
+  getActiveModel: () => {
+    const { models, customModels, activeModelId } = get()
+    return [...models, ...customModels].find(m => m.id === activeModelId)
+  },
+
+  getAllModels: () => {
+    const { models, customModels } = get()
+    return [...models, ...customModels]
+  }
+}))
