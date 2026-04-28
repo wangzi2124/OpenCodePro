@@ -393,13 +393,14 @@ async function callLLM(messages, model, agent) {
   const isOpenAI = model.provider === ModelProvider.OPENAI
   
   if (isOllama) {
-    const endpoint = model.endpoint || 'http://localhost:11434'
-    const modelName = model.model || 'llama2'
-    
-    const response = await fetch(`${endpoint}/api/chat`, {
+    const response = await fetch('/api/proxy/ollama', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: modelName, messages, stream: false })
+      body: JSON.stringify({ 
+        model: model.model || 'llama2', 
+        messages, 
+        stream: false 
+      })
     })
     
     if (!response.ok) throw new Error(`Ollama API error: ${response.status}`)
@@ -407,22 +408,20 @@ async function callLLM(messages, model, agent) {
     return data.message?.content || data.response || "No response from model"
   }
   
-  if (isOpenAI) {
-    if (!model.apiKey) return "OpenAI API key not configured."
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${model.apiKey}`
-      },
-      body: JSON.stringify({
-        model: model.id === 'gpt-4' ? 'gpt-4' : 'gpt-3.5-turbo',
-        messages,
-        temperature: model.temperature || 0.7,
-        max_tokens: model.maxTokens || 4096
-      })
+if (isOpenAI) {
+  if (!model.apiKey) return "OpenAI API key not configured."
+  
+  const response = await fetch('/api/proxy/openai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      apiKey: model.apiKey,
+      model: model.id === 'gpt-4' ? 'gpt-4' : 'gpt-3.5-turbo',
+      messages,
+      temperature: model.temperature || 0.7,
+      max_tokens: model.maxTokens || 4096
     })
+  })
     
     if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`)
     const data = await response.json()

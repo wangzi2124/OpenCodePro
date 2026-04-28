@@ -9,8 +9,49 @@ import { promisify } from 'util'
 const exec = promisify(execSync)
 const app = express()
 
-app.use(cors())
+app.use(cors({
+  origin: ['http://192.168.124.16:5173', 'http://localhost:5173'],
+  credentials: true
+}))
+
 app.use(express.json())
+
+app.post('/api/proxy/ollama', async (req, res) => {
+  const endpoint = 'http://localhost:11434'
+  const { path = '/api/chat', ...body } = req.body
+  
+  try {
+    const response = await fetch(`${endpoint}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    const data = await response.json()
+    res.json(data)
+  } catch (e) {
+    res.json({ error: e.message })
+  }
+})
+
+app.post('/api/proxy/openai', async (req, res) => {
+  const { apiKey, ...body } = req.body
+  if (!apiKey) return res.json({ error: 'API key required' })
+  
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body)
+    })
+    const data = await response.json()
+    res.json(data)
+  } catch (e) {
+    res.json({ error: e.message })
+  }
+})
 
 const tools = {
   async read({ filePath }) {
