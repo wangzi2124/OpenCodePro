@@ -1,0 +1,8 @@
+{
+  "model": "qwen2.5:7b",
+  "messages": [
+    {"role": "system", "content": "You are a React expert. Generate a complete Tetris game as a single React component. Output only code in markdown code block."},
+    {"role": "user", "content": "Create a Tetris game in React. Requirements: 10x20 grid, 7 tetrominos (I,O,T,S,Z,J,L), keyboard controls (arrows, space), score system, next piece preview, game over detection. Use useState, useEffect, useCallback. Use dark theme with colorful blocks. Output only code in ```tsx code block."}
+  ],
+  "stream": false
+}
