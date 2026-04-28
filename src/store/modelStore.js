@@ -10,7 +10,7 @@ const defaultModels = [
   { id: 'gemini-pro', name: 'Gemini Pro', provider: ModelProvider.GEMINI, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
   { id: 'ollama-llama2', name: 'llama2', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'llama2:latest', temperature: 0.7 },
   { id: 'ollama-codellama', name: 'codellama', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'codellama:latest', temperature: 0.7 },
-  { id: 'ollama-q4', name: 'ollama-q4 (Ollama)', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'wangshenzhi/llama3-8b-chinese-chat-ollama-q4:v1', temperature: 0.7 }
+  { id: 'qwen2.5', name: 'qwen2.5', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'qwen2.5:7b', temperature: 0.7 }
 ]
 
 export const useModelStore = create((set, get) => ({

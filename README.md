@@ -6,10 +6,25 @@
 
 ```bash
 npm install
-npm run dev
+npm run start
 ```
 
 访问 http://localhost:5173
+
+## 网络配置 (重要)
+
+### 本地访问
+
+- 前端地址: http://localhost:5173 或 http://192.168.x.x:5173
+- 后端 API: http://localhost:3001
+
+### 解决 CORS 问题
+
+当通过 IP 地址访问前端时 (如 http://192.168.124.16:5173)，LLM API 请求会走代理:
+- `/api/proxy/ollama` → Ollama (localhost:11434)
+- `/api/proxy/openai` → OpenAI API
+
+Vite 会自动将 `/api` 请求代理到 Express 后端。
 
 ---
 
@@ -134,7 +149,9 @@ src/
 ## 命令
 
 ```bash
-npm run dev       # 开发服务器
+npm run dev       # 前端开发服务器 (5173)
+npm run server    # 后端 API 服务 (3001)
+npm run start     # 同时运行前端和后端
 npm run build     # 构建生产版本
 npm run preview   # 预览生产版本
 ```

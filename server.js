@@ -63,9 +63,16 @@ const tools = {
   },
 
   async write({ filePath, content }) {
-    const dir = filePath.substring(0, filePath.lastIndexOf('/'))
+    let dir
+    if (filePath.includes('/')) {
+      dir = filePath.substring(0, filePath.lastIndexOf('/'))
+    } else if (filePath.includes('\\')) {
+      dir = filePath.substring(0, filePath.lastIndexOf('\\'))
+    }
+    
     if (dir && !existsSync(dir)) {
-      return { error: `Directory not found: ${dir}` }
+      const { mkdir } = await import('fs/promises')
+      await mkdir(dir, { recursive: true })
     }
     await writeFile(filePath, content, 'utf-8')
     return { success: true, message: `Written to ${filePath}` }
@@ -91,8 +98,17 @@ const tools = {
 
   async grep({ pattern, include = '*', path = '.' }) {
     try {
-      const cmd = `grep -r --include="${include}" "${pattern}" "${path}" || true`
-      const { stdout } = await exec(cmd)
+      const isWin = process.platform === 'win32'
+      let cmd
+      if (isWin) {
+        cmd = `Get-ChildItem -Path "${path}" -Include "${include}" -Recurse -ErrorAction SilentlyContinue | Select-String -Pattern "${pattern}" | ForEach-Object { "$($_.FileName):$($_.LineNumber): $($_.Line)" }`
+      } else {
+        cmd = `grep -r --include="${include}" "${pattern}" "${path}" || true`
+      }
+      const { stdout } = await exec(cmd, { 
+        shell: isWin ? 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe' : '/bin/bash',
+        windowsHide: true 
+      })
       return { results: stdout.trim() || 'No matches found' }
     } catch (e) {
       return { results: 'No matches found' }
@@ -102,22 +118,17 @@ const tools = {
   async bash({ command, workdir }) {
     try {
       const cwd = workdir || process.cwd()
+      const isWin = process.platform === 'win32'
       
       let finalCommand = command
-      let shell = '/bin/bash'
-      
-      if (process.platform === 'win32') {
-        shell = 'cmd.exe'
-        if (command.match(/^[A-Za-z]:/)) {
-          const drive = command.charAt(0).toUpperCase()
-          const rest = command.replace(/^[A-Za-z]:/, '').replace(/^\//, '').replace(/^\//, '')
-          finalCommand = `${drive}:\\${rest}`
-        }
+      if (isWin) {
+        finalCommand = command.replace(/\//g, '\\')
       }
 
       const { stdout, stderr } = await exec(finalCommand, { 
         cwd,
-        shell
+        shell: isWin ? 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe' : '/bin/bash',
+        windowsHide: true
       })
       return { 
         stdout: stdout || '(no output)', 
@@ -166,14 +177,20 @@ app.post('/api/tool', async (req, res) => {
 app.get('/api/files', async (req, res) => {
   const { path } = req.query
   try {
-    const files = await readdir(path || '.')
+    const basePath = path || '.'
+    const files = await readdir(basePath)
     const list = await Promise.all(
       files.slice(0, 100).map(async (f) => {
-        const s = await stat(f)
-        return { name: f, isDirectory: s.isDirectory(), size: s.size }
+        try {
+          const fullPath = basePath === '.' ? f : `${basePath}/${f}`.replace(/\\/g, '/')
+          const s = await stat(fullPath)
+          return { name: f, isDirectory: s.isDirectory(), size: s.size }
+        } catch {
+          return { name: f, isDirectory: false, size: 0, error: ' inaccessible' }
+        }
       })
     )
-    res.json(list)
+    res.json(list.filter(f => !f.error))
   } catch (e) {
     res.json({ error: e.message })
   }

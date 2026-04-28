@@ -7,38 +7,42 @@ import { useModelStore } from './modelStore'
 
 const API_URL = 'http://localhost:3001'
 
-const REACT_SYSTEM_PROMPT = `You are a reasoning agent that uses the ReAct (Reasoning + Acting) format.
+const REACT_SYSTEM_PROMPT = `You are an expert AI assistant that combines deep reasoning with powerful tools to solve complex tasks efficiently.
 
-Output your response using these tags:
-- <thought>Your reasoning about what to do</thought>
-- <action>tool_name:arg1:value1,arg2:value2</action> - use this to call a tool
-- <observation>tool result will be inserted here</observation>
-- <final_answer>Your final answer to the user</final_answer>
+You operate using the ReAct (Reasoning + Acting) pattern with structured output tags:
 
-Example:
-<thought>I need to read the file to understand its structure</thought>
-<action>read:filePath:/path/to/file.txt</action>
-<observation>File content here...</observation>
-<thought>Now I understand the file structure</thought>
-<final_answer>The file contains...</final_answer>
+<thought>Your reasoning process - analyze the problem, plan your approach, evaluate what tools are needed</thought>
+<action>tool_name:arg1:value1,arg2:value2</action>
+<observation>Tool execution result will appear here</observation>
+<final_answer>Your comprehensive answer to the user</final_answer>
 
-Rules:
-1. Always start with <thought>
-2. Use <action> to call tools when needed
-3. After each action, you will receive the result in <observation>
-4. When you have the answer, use <final_answer>
-5. For bash commands, wait for user confirmation before executing
-6. Other tools will be executed automatically
+Example interaction:
+User: Read the package.json and tell me the project name
 
-Available tools:
-- read:filePath:<path> - Read a file
-- write:filePath:<path>,content:<content> - Write to a file
-- edit:filePath:<path>,oldString:<text>,newString:<text> - Edit a file
-- glob:pattern:<glob> - Find files by pattern
-- grep:pattern:<regex>,include:<file_pattern> - Search in files
-- bash:command:<cmd> - Execute bash command (requires confirmation)
-- web:url:<url> - Fetch URL content
-- search:query:<query> - Web search`
+<thought>The user wants me to read a file and extract information. I should use the read tool to access package.json first.</thought>
+<action>read:filePath:/path/to/package.json</action>
+<observation>{"name": "my-project", "version": "1.0.0", "description": "A sample project"}</observation>
+<thought>I received the file content. The project name is "my-project" and version is "1.0.0".</thought>
+<final_answer>The project name is "my-project" (version 1.0.0).</final_answer>
+
+Core Rules:
+1. Always start with <thought> to show your reasoning
+2. Use <action> when you need to access external information or perform operations
+3. Results appear in <observation> - use them to refine your thinking
+4. End with <final_answer> when you have a complete solution
+5. Bash commands require user confirmation before execution
+6. Chain multiple tools when needed for complex tasks
+
+Available Tools:
+- read:filePath:<path> - Read file contents (supports large files with offset/limit)
+- write:filePath:<path>,content:<content> - Create or overwrite a file
+- edit:filePath:<path>,oldString:<text>,newString:<text> - Modify existing files
+- glob:pattern:<glob> - Find files by pattern (e.g., **/*.js, src/**/*.{ts,tsx})
+- grep:pattern:<regex>,include:<file_pattern>,path:<directory> - Search file contents
+- bash:command:<cmd> - Execute terminal commands
+- web:url:<url> - Fetch web page content
+- search:query:<query> - Search the web for information
+- code:query:<question> - Search programming examples/documentation`
 
 const TOOL_DEFINITIONS = {
   read: {
@@ -100,33 +104,162 @@ const TOOL_DEFINITIONS = {
     parameters: {
       query: { type: 'string', required: true, description: 'Search query' }
     }
+  },
+  code: {
+    name: 'code',
+    description: 'Search for programming code examples and patterns from GitHub',
+    parameters: {
+      query: { type: 'string', required: true, description: 'Code search query (e.g., "useState React hooks")' },
+      language: { type: 'string', required: false, description: 'Programming language filter (e.g., TypeScript, Python)' }
+    }
   }
 }
 
 function parseReActTags(text) {
+  let thought = null, action = null, finalAnswer = null, observation = null
+  
   const thoughtMatch = text.match(/<thought>([\s\S]*?)<\/thought>/)
   const actionMatch = text.match(/<action>([\s\S]*?)<\/action>/)
   const finalAnswerMatch = text.match(/<final_answer>([\s\S]*?)<\/final_answer>/)
   const observationMatch = text.match(/<observation>([\s\S]*?)<\/observation>/)
-
-  return {
-    thought: thoughtMatch ? thoughtMatch[1].trim() : null,
-    action: actionMatch ? actionMatch[1].trim() : null,
-    finalAnswer: finalAnswerMatch ? finalAnswerMatch[1].trim() : null,
-    observation: observationMatch ? observationMatch[1].trim() : null
+  
+  thought = thoughtMatch ? thoughtMatch[1].trim() : null
+  observation = observationMatch ? observationMatch[1].trim() : null
+  
+  if (finalAnswerMatch) {
+    finalAnswer = finalAnswerMatch[1].trim()
+  } else if (actionMatch) {
+    action = actionMatch[1].trim()
+  } else {
+    const jsonResult = parseJsonOutput(text)
+    if (jsonResult) {
+      finalAnswer = jsonResult.finalAnswer
+      action = jsonResult.action
+    } else {
+      finalAnswer = text.trim()
+    }
   }
+  
+  return { thought, action, finalAnswer, observation }
+}
+
+function parseJsonOutput(text) {
+  try {
+    const json = JSON.parse(text.trim())
+    
+    const finalKey = Object.keys(json).find(k => k.toLowerCase() === 'final_answer' || k.toLowerCase() === 'answer')
+    if (finalKey !== undefined) {
+      return { finalAnswer: json[finalKey] }
+    }
+    
+    const toolKey = Object.keys(json).find(k => 
+      k.toLowerCase() === 'tool' || 
+      k.toLowerCase().includes('read') || k.toLowerCase().includes('write') ||
+      k.toLowerCase().includes('edit') || k.toLowerCase().includes('glob') ||
+      k.toLowerCase().includes('grep') || k.toLowerCase().includes('bash') ||
+      k.toLowerCase().includes('run') || k.toLowerCase().includes('fetch') ||
+      k.toLowerCase().includes('search') || k.toLowerCase().includes('code')
+    )
+    if (toolKey) {
+      const toolName = json[toolKey]
+      if (TOOL_DEFINITIONS[toolName]) {
+        const args = json.args || {}
+        return { action: JSON.stringify({ tool: toolName, args }) }
+      }
+    }
+  } catch {}
+  return null
 }
 
 function parseAction(actionStr) {
   if (!actionStr) return null
   
-  const match = actionStr.match(/^(\w+):(.+)$/)
-  if (!match) return null
+  const jsonClean = actionStr.replace(/^\s*/, '').replace(/\s*$/, '').trim()
+  
+  try {
+    const json = JSON.parse(jsonClean)
+    
+    const finalKey = Object.keys(json).find(k => k.toLowerCase() === 'final_answer' || k.toLowerCase() === 'answer')
+    if (finalKey) {
+      return { finalAnswer: json[finalKey] }
+    }
+    
+    const toolKey = Object.keys(json).find(k => 
+      k.toLowerCase() === 'tool' || k.toLowerCase().includes('read') || 
+      k.toLowerCase().includes('write') || k.toLowerCase().includes('edit') ||
+      k.toLowerCase().includes('glob') || k.toLowerCase().includes('grep') ||
+      k.toLowerCase().includes('bash') || k.toLowerCase().includes('run') ||
+      k.toLowerCase().includes('fetch') || k.toLowerCase().includes('search')
+    )
+    if (toolKey) {
+      const toolMap = {
+        read_file: 'read', file_read: 'read', Read: 'read', 'read file': 'read',
+        write_file: 'write', file_write: 'write', Write: 'write', 'write file': 'write',
+        edit_file: 'edit', file_edit: 'edit', Edit: 'edit', 'edit file': 'edit',
+        glob_file: 'glob', file_glob: 'glob', Glob: 'glob', 'glob file': 'glob',
+        grep_search: 'grep', Grep: 'grep',
+        run_bash: 'bash', bash_run: 'bash', Run: 'bash', bash: 'bash', command: 'bash',
+        web_fetch: 'fetch', fetch_url: 'fetch', Fetch: 'fetch',
+        web_search: 'search', Search: 'search',
+        code_search: 'code', Code: 'code', 'code search': 'code'
+      }
+      
+      const toolName = toolMap[json[toolKey]] || json[toolKey]
+      
+      if (TOOL_DEFINITIONS[toolName]) {
+        let args = {}
+        if (json.args && typeof json.args === 'object') {
+          args = json.args
+        } else {
+          for (const [k, v] of Object.entries(json)) {
+            if (k !== toolKey) args[k] = v
+          }
+        }
+        return { tool: toolName, args }
+      }
+    }
+  } catch {}
+  
+  let toolName, argsStr
+  let match = actionStr.match(/^(\w+)-(\w+):(.+)$/)
+  if (match) {
+    toolName = match[2]
+    argsStr = match[3]
+  } else {
+    match = actionStr.match(/^(\w+)_(\w+):(.+)$/)
+    if (match) {
+      toolName = match[2]
+      argsStr = match[3]
+    } else {
+      match = actionStr.match(/^(\w+):(.+)$/)
+      if (!match) return null
+      toolName = match[1]
+      argsStr = match[2]
+    }
+  }
 
-  const toolName = match[1]
-  const argsStr = match[2]
+  if ((toolName === 'write' || toolName === 'file') && argsStr.includes(':') && argsStr.includes(',')) {
+    const firstCommaIndex = argsStr.indexOf(',');
+    const filePath = argsStr.substring(0, firstCommaIndex);
+    const content = argsStr.substring(firstCommaIndex + 1);
+    const contentValue = content.replace(/^content:/, '');
+    if (filePath && contentValue) {
+      const finalTool = toolName === 'file' ? 'write' : toolName
+      return { tool: finalTool, args: { filePath, content: contentValue } }
+    }
+  }
+
+  if ((toolName === 'write' || toolName === 'file') && argsStr.includes(':') && !argsStr.startsWith('filePath:')) {
+    const lastColon = argsStr.lastIndexOf(':');
+    const filePath = argsStr.substring(0, lastColon);
+    const content = argsStr.substring(lastColon + 1);
+    if (filePath && content) {
+      const finalTool = toolName === 'file' ? 'write' : toolName
+      return { tool: finalTool, args: { filePath, content } }
+    }
+  }
+
   const args = {}
-
   const argMatches = argsStr.matchAll(/(\w+):([^,]+)/g)
   for (const m of argMatches) {
     args[m[1]] = m[2].trim()
@@ -152,11 +285,19 @@ async function executeToolBackend(toolName, args) {
   const mapToolName = { web: 'fetch' }
   const apiTool = mapToolName[toolName] || toolName
 
+  const finalArgs = args || {}
+  
+  for (const [k, v] of Object.entries(args || {})) {
+    if (k !== 'tool' && k !== 'args' && typeof v === 'object') {
+      Object.assign(finalArgs, v)
+    }
+  }
+
   try {
     const res = await fetch(`${API_URL}/api/tool`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tool: apiTool, args })
+      body: JSON.stringify({ tool: apiTool, args: finalArgs })
     })
     const result = await res.json()
 
@@ -345,11 +486,7 @@ async function runReActLoop(messages, activeModel, mainAgent, agentId) {
 
     if (action) {
       const toolCall = parseAction(action)
-      
-      if (!toolCall) {
-        addMessage(MessageRole.SYSTEM, `Invalid action format: ${action}`)
-        break
-      }
+      if (!toolCall) continue
 
       if (toolCall.tool === 'bash') {
         const cmd = toolCall.args.command
