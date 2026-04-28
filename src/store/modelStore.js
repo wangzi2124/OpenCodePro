@@ -2,15 +2,15 @@ import { create } from 'zustand'
 import { ModelProvider } from '../types'
 
 const defaultModels = [
-  { id: 'gpt-4', name: 'GPT-4', provider: ModelProvider.OPENAI, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
+  { id: 'gpt-4', name: 'GPT-4', provider: ModelProvider.OPENAI, apiKey: 'sk-5c57aeb9530a42ba91e39fdec37cc20e', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
   { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: ModelProvider.OPENAI, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
   { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: ModelProvider.OPENAI, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
   { id: 'claude-3-opus', name: 'Claude 3 Opus', provider: ModelProvider.ANTHROPIC, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
   { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', provider: ModelProvider.ANTHROPIC, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
   { id: 'gemini-pro', name: 'Gemini Pro', provider: ModelProvider.GEMINI, apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096 },
-  { id: 'ollama-llama2', name: 'llama2(Ollama)', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'llama2', temperature: 0.7 },
-  { id: 'ollama-codellama', name: 'CodeLlama (Ollama)', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'codellama', temperature: 0.7 },
-  { id: 'ollama-q4', name: 'ollama-q4 (Ollama)', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: ' wangshenzhi/llama3-8b-chinese-chat-ollama-q4:v1', temperature: 0.7 }
+  { id: 'ollama-llama2', name: 'llama2', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'llama2:latest', temperature: 0.7 },
+  { id: 'ollama-codellama', name: 'codellama', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'codellama:latest', temperature: 0.7 },
+  { id: 'ollama-q4', name: 'ollama-q4 (Ollama)', provider: ModelProvider.OLLAMA, endpoint: 'http://localhost:11434', model: 'wangshenzhi/llama3-8b-chinese-chat-ollama-q4:v1', temperature: 0.7 }
 ]
 
 export const useModelStore = create((set, get) => ({
