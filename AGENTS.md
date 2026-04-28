@@ -21,18 +21,22 @@ npm run start   # Run both dev + server
 ```
 src/
 ├── components/   # Header, Sidebar, ChatArea, Terminal, AgentPanel, ModelModal, RAGPanel
-├── store/        # Zustand stores (modelStore, agentStore, ragStore, chatStore)
-├── types/        # Enums (AgentType, AgentStatus, ModelProvider, MCPAction, MessageRole)
+├── store/         # Zustand stores (modelStore, agentStore, ragStore, chatStore)
+├── types/        # Enums
 ├── styles/       # Global CSS
 ├── App.jsx       # Main entry
 └── main.jsx      # React entry
 ```
 
-## Agent System
+## API Proxy (Critical)
 
-Main Agent coordinates: FILE, CODE, BASH, WEB, RESEARCH agents via MCP protocol (SPAWN, TASK, RESPONSE, KILL, STATUS).
+Vite proxy forwards `/api` to Express (3001):
+- `/api/proxy/ollama` → Ollama at `localhost:11434`
+- `/api/proxy/openai` → OpenAI API
+
+前端访问后端 LLM 统一通过代理，避免 CORS。
 
 ## Windows-Specific
 
 - `New-Item -ItemType Directory` - no mkdir
-- Avoid `&&` - use semicolons or separate commands
+- Avoid `&&` - use semicolons or run sequentially
