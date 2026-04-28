@@ -7,6 +7,39 @@ import { useModelStore } from './modelStore'
 
 const API_URL = 'http://localhost:3001'
 
+const REACT_SYSTEM_PROMPT = `You are a reasoning agent that uses the ReAct (Reasoning + Acting) format.
+
+Output your response using these tags:
+- <thought>Your reasoning about what to do</thought>
+- <action>tool_name:arg1:value1,arg2:value2</action> - use this to call a tool
+- <observation>tool result will be inserted here</observation>
+- <final_answer>Your final answer to the user</final_answer>
+
+Example:
+<thought>I need to read the file to understand its structure</thought>
+<action>read:filePath:/path/to/file.txt</action>
+<observation>File content here...</observation>
+<thought>Now I understand the file structure</thought>
+<final_answer>The file contains...</final_answer>
+
+Rules:
+1. Always start with <thought>
+2. Use <action> to call tools when needed
+3. After each action, you will receive the result in <observation>
+4. When you have the answer, use <final_answer>
+5. For bash commands, wait for user confirmation before executing
+6. Other tools will be executed automatically
+
+Available tools:
+- read:filePath:<path> - Read a file
+- write:filePath:<path>,content:<content> - Write to a file
+- edit:filePath:<path>,oldString:<text>,newString:<text> - Edit a file
+- glob:pattern:<glob> - Find files by pattern
+- grep:pattern:<regex>,include:<file_pattern> - Search in files
+- bash:command:<cmd> - Execute bash command (requires confirmation)
+- web:url:<url> - Fetch URL content
+- search:query:<query> - Web search`
+
 const TOOL_DEFINITIONS = {
   read: {
     name: 'read',
@@ -70,33 +103,49 @@ const TOOL_DEFINITIONS = {
   }
 }
 
-const TOOL_PROMPT = `
-You have access to tools. When you need to use a tool, respond in this JSON format:
-{"tool": "tool_name", "args": {"param1": "value1", "param2": "value2"}}
+function parseReActTags(text) {
+  const thoughtMatch = text.match(/<thought>([\s\S]*?)<\/thought>/)
+  const actionMatch = text.match(/<action>([\s\S]*?)<\/action>/)
+  const finalAnswerMatch = text.match(/<final_answer>([\s\S]*?)<\/final_answer>/)
+  const observationMatch = text.match(/<observation>([\s\S]*?)<\/observation>/)
 
-Available tools:
-${Object.entries(TOOL_DEFINITIONS).map(([name, def]) => 
-  `- ${name}: ${def.description}. Params: ${Object.entries(def.parameters).map(([k, v]) => `${k}${v.required ? '*' : ''}`).join(', ')}`
-).join('\n')}
+  return {
+    thought: thoughtMatch ? thoughtMatch[1].trim() : null,
+    action: actionMatch ? actionMatch[1].trim() : null,
+    finalAnswer: finalAnswerMatch ? finalAnswerMatch[1].trim() : null,
+    observation: observationMatch ? observationMatch[1].trim() : null
+  }
+}
 
-After getting the result, continue with your response or call more tools.
-When finished, respond with {"done": true, "response": "your answer"}
-`
+function parseAction(actionStr) {
+  if (!actionStr) return null
+  
+  const match = actionStr.match(/^(\w+):(.+)$/)
+  if (!match) return null
 
-function parseToolCall(text) {
-  try {
-    const trimmed = text.trim()
-    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-      const parsed = JSON.parse(trimmed)
-      if (parsed.tool && TOOL_DEFINITIONS[parsed.tool]) {
-        return parsed
-      }
-      if (parsed.done) {
-        return { done: true, response: parsed.response }
-      }
-    }
-  } catch (e) {}
+  const toolName = match[1]
+  const argsStr = match[2]
+  const args = {}
+
+  const argMatches = argsStr.matchAll(/(\w+):([^,]+)/g)
+  for (const m of argMatches) {
+    args[m[1]] = m[2].trim()
+  }
+
+  if (TOOL_DEFINITIONS[toolName]) {
+    return { tool: toolName, args }
+  }
   return null
+}
+
+function extractThoughts(text) {
+  const thoughts = []
+  const regex = /<thought>([\s\S]*?)<\/thought>/g
+  let match
+  while ((match = regex.exec(text)) !== null) {
+    thoughts.push(match[1].trim())
+  }
+  return thoughts
 }
 
 async function executeToolBackend(toolName, args) {
@@ -180,6 +229,44 @@ export const useChatStore = create((set, get) => ({
     return executeToolBackend(toolName, args)
   },
 
+  pendingBashCommand: null,
+
+  setPendingBashCommand: (cmd) => set({ pendingBashCommand: cmd }),
+
+  confirmBashCommand: async () => {
+    const { pendingBashCommand, messages, addMessage, setProcessing } = get()
+    if (!pendingBashCommand) return
+
+    set({ pendingBashCommand: null })
+    setProcessing(true)
+
+    const modelStore = useModelStore.getState()
+    const activeModel = modelStore.getActiveModel()
+    const agentStore = useAgentStore.getState()
+    const mainAgent = agentStore.getMainAgent()
+
+    const chatHistory = messages.filter(m => m.role !== MessageRole.SYSTEM)
+
+    const llmMessages = [
+      { role: 'system', content: REACT_SYSTEM_PROMPT },
+      ...chatHistory.map(m => ({
+        role: m.role === MessageRole.USER ? 'user' : 'assistant',
+        content: m.content
+      })),
+      { role: 'user', content: `<observation>User confirmed command: ${pendingBashCommand.command}\nExecuting...</observation>` }
+    ]
+
+    const result = await executeToolBackend('bash', { command: pendingBashCommand.command })
+    llmMessages.push({ role: 'user', content: `<observation>${result}</observation>` })
+
+    await runReActLoop(llmMessages, activeModel, mainAgent, agentStore.mainAgentId)
+  },
+
+  rejectBashCommand: () => {
+    set({ pendingBashCommand: null })
+    addMessage(MessageRole.SYSTEM, 'Command rejected by user')
+  },
+
   sendMessage: async (content) => {
     const { addMessage, setProcessing, executeWithRAG } = get()
     
@@ -190,7 +277,7 @@ export const useChatStore = create((set, get) => ({
     let fullPrompt = content
     if (ragContext) fullPrompt = `User query: ${content}\n${ragContext}`
 
-    const chatHistory = get().messages.slice(-10)
+    const chatHistory = get().messages.filter(m => m.role !== MessageRole.SYSTEM).slice(-10)
     
     try {
       const modelStore = useModelStore.getState()
@@ -199,7 +286,7 @@ export const useChatStore = create((set, get) => ({
       const mainAgent = agentStore.getMainAgent()
 
       const messages = [
-        { role: 'system', content: TOOL_PROMPT },
+        { role: 'system', content: REACT_SYSTEM_PROMPT },
         ...chatHistory.map(m => ({
           role: m.role === MessageRole.USER ? 'user' : 'assistant',
           content: m.content
@@ -207,50 +294,97 @@ export const useChatStore = create((set, get) => ({
         { role: 'user', content: fullPrompt }
       ]
 
-      let maxIterations = 10
-      let response = null
-
-      while (maxIterations-- > 0) {
-        const llmResponse = await callLLM(messages, activeModel, mainAgent)
-        
-        if (!llmResponse) {
-          addMessage(MessageRole.SYSTEM, 'Failed to get response from model')
-          break
-        }
-
-        const toolCall = parseToolCall(llmResponse)
-
-        if (toolCall?.done) {
-          response = toolCall.response
-          addMessage(MessageRole.ASSISTANT, response, agentStore.mainAgentId, { modelId: activeModel?.id })
-          break
-        }
-
-        if (toolCall?.tool) {
-          messages.push({ role: 'assistant', content: llmResponse })
-          const result = await executeToolBackend(toolCall.tool, toolCall.args)
-          messages.push({ role: 'user', content: `Tool ${toolCall.tool} result:\n${result}` })
-          continue
-        }
-
-        if (llmResponse.length < 500) {
-          response = llmResponse
-          addMessage(MessageRole.ASSISTANT, response, agentStore.mainAgentId, { modelId: activeModel?.id })
-          break
-        }
-
-        break
-      }
-      
-      setProcessing(false)
-      return response
+      await runReActLoop(messages, activeModel, mainAgent, agentStore.mainAgentId)
     } catch (error) {
       addMessage(MessageRole.SYSTEM, `Error: ${error.message}`)
       setProcessing(false)
-      return null
     }
   }
 }))
+
+async function runReActLoop(messages, activeModel, mainAgent, agentId) {
+  const chatStore = useChatStore.getState()
+  const { addMessage, setProcessing, updateMessage, setPendingBashCommand } = chatStore
+
+  let currentMessageId = null
+  let maxIterations = 15
+
+  while (maxIterations-- > 0) {
+    const llmResponse = await callLLM(messages, activeModel, mainAgent)
+    
+    if (!llmResponse) {
+      addMessage(MessageRole.SYSTEM, 'Failed to get response from model')
+      break
+    }
+
+    const { thought, action, finalAnswer, observation } = parseReActTags(llmResponse)
+
+    if (thought) {
+      const fullThoughts = extractThoughts(messages.map(m => m.content).join('\n'))
+      let thoughtText = fullThoughts.map(t => `• ${t}`).join('\n\n')
+      if (thought) {
+        thoughtText += (thoughtText ? '\n\n' : '') + `• ${thought}`
+      }
+
+      if (currentMessageId) {
+        updateMessage(currentMessageId, { content: `**Thinking:**\n\n${thoughtText}` })
+      } else {
+        const msg = addMessage(MessageRole.ASSISTANT, `**Thinking:**\n\n${thoughtText}`, agentId, { modelId: activeModel?.id, isThinking: true })
+        currentMessageId = msg.id
+      }
+    }
+
+    if (finalAnswer) {
+      if (currentMessageId) {
+        updateMessage(currentMessageId, { content: finalAnswer, metadata: { ...chatStore.messages.find(m => m.id === currentMessageId)?.metadata, isThinking: false } })
+      } else {
+        addMessage(MessageRole.ASSISTANT, finalAnswer, agentId, { modelId: activeModel?.id })
+      }
+      break
+    }
+
+    if (action) {
+      const toolCall = parseAction(action)
+      
+      if (!toolCall) {
+        addMessage(MessageRole.SYSTEM, `Invalid action format: ${action}`)
+        break
+      }
+
+      if (toolCall.tool === 'bash') {
+        const cmd = toolCall.args.command
+        addMessage(MessageRole.SYSTEM, `⚠️ Confirm to execute this command?\n\`\`\`\n${cmd}\n\`\`\``)
+        setPendingBashCommand({ command: cmd })
+        return
+      }
+
+      messages.push({ role: 'assistant', content: llmResponse })
+      
+      const result = await executeToolBackend(toolCall.tool, toolCall.args)
+      messages.push({ role: 'user', content: `<observation>${result}</observation>` })
+      
+      if (currentMessageId) {
+        const currentMsg = chatStore.messages.find(m => m.id === currentMessageId)
+        updateMessage(currentMessageId, { 
+          content: (currentMsg?.content || '') + `\n\n**Action:** ${action}\n\n**Result:**\n\`\`\`\n${result.slice(0, 1000)}${result.length > 1000 ? '...' : ''}\n\`\`\`` 
+        })
+      }
+
+      continue
+    }
+
+    if (!thought && !action && !finalAnswer) {
+      if (currentMessageId) {
+        updateMessage(currentMessageId, { content: llmResponse, metadata: { ...chatStore.messages.find(m => m.id === currentMessageId)?.metadata, isThinking: false } })
+      } else {
+        addMessage(MessageRole.ASSISTANT, llmResponse, agentId, { modelId: activeModel?.id })
+      }
+      break
+    }
+  }
+
+  setProcessing(false)
+}
 
 async function callLLM(messages, model, agent) {
   if (!model) return "No model selected. Please configure a model in Settings."
