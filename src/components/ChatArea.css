@@ -228,3 +228,58 @@
   background: var(--border-color);
   cursor: not-allowed;
 }
+
+.bash-confirm {
+  background: var(--bg-secondary);
+  border: 1px solid var(--warning-color, #d29922);
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.bash-confirm-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bash-confirm-content code {
+  background: var(--bg-primary);
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.bash-confirm-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.confirm-btn {
+  background: var(--accent-primary);
+  border: none;
+  border-radius: 4px;
+  padding: 6px 16px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.confirm-btn:hover {
+  background: #79b8ff;
+}
+
+.reject-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 6px 16px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.reject-btn:hover {
+  background: var(--bg-secondary);
+}

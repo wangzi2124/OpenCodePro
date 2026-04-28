@@ -1,8 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
-import { useChatStore, useAgentStore, useRagStore } from '../store'
-import { MessageRole } from '../types'
+import { useChatStore, useAgentStore } from '../store'
+import { MessageRole, AgentType } from '../types'
 import ReactMarkdown from 'react-markdown'
 import './ChatArea.css'
+
+const agentPlaceholders = {
+  [AgentType.MAIN]: 'Describe the task you want help with...',
+  [AgentType.FILE]: 'Search for files by pattern...',
+  [AgentType.CODE]: 'Ask about code structure, logic, or implementation...',
+  [AgentType.BASH]: 'Enter command to execute...',
+  [AgentType.WEB]: 'Search the web for information...',
+  [AgentType.RESEARCH]: 'Research topic or find documentation...',
+  [AgentType.EDIT]: 'Edit, refactor, or write code...',
+  [AgentType.GLOB]: 'Find files matching pattern...',
+  [AgentType.GREP]: 'Search for content in files...',
+  [AgentType.CUSTOM]: 'Enter your request...'
+}
 
 function ChatArea() {
   const [input, setInput] = useState('')
@@ -11,6 +24,13 @@ function ChatArea() {
   const messages = useChatStore(state => state.messages)
   const isProcessing = useChatStore(state => state.isProcessing)
   const sendMessage = useChatStore(state => state.sendMessage)
+  const pendingBashCommand = useChatStore(state => state.pendingBashCommand)
+  const confirmBashCommand = useChatStore(state => state.confirmBashCommand)
+  const rejectBashCommand = useChatStore(state => state.rejectBashCommand)
+  
+  const getMainAgent = useAgentStore(state => state.getMainAgent)
+  const mainAgent = getMainAgent()
+  const currentPlaceholder = mainAgent ? agentPlaceholders[mainAgent.type] || agentPlaceholders[AgentType.MAIN] : agentPlaceholders[AgentType.MAIN]
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -91,6 +111,19 @@ function ChatArea() {
             </div>
           </div>
         )}
+
+        {pendingBashCommand && (
+          <div className="message system bash-confirm">
+            <div className="bash-confirm-content">
+              <span>⚠️ 执行此命令？</span>
+              <code>{pendingBashCommand.command}</code>
+              <div className="bash-confirm-buttons">
+                <button className="confirm-btn" onClick={confirmBashCommand}>确认执行</button>
+                <button className="reject-btn" onClick={rejectBashCommand}>取消</button>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div ref={messagesEndRef} />
       </div>
@@ -100,7 +133,7 @@ function ChatArea() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
+          placeholder={`${currentPlaceholder} (Enter to send, Shift+Enter for new line)`}
           disabled={isProcessing}
           rows={1}
         />

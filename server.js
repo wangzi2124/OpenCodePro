@@ -58,9 +58,26 @@ const tools = {
     }
   },
 
-  async bash({ command, workdir = process.cwd() }) {
+  async bash({ command, workdir }) {
     try {
-      const { stdout, stderr } = await exec(command, { cwd: workdir })
+      const cwd = workdir || process.cwd()
+      
+      let finalCommand = command
+      let shell = '/bin/bash'
+      
+      if (process.platform === 'win32') {
+        shell = 'cmd.exe'
+        if (command.match(/^[A-Za-z]:/)) {
+          const drive = command.charAt(0).toUpperCase()
+          const rest = command.replace(/^[A-Za-z]:/, '').replace(/^\//, '').replace(/^\//, '')
+          finalCommand = `${drive}:\\${rest}`
+        }
+      }
+
+      const { stdout, stderr } = await exec(finalCommand, { 
+        cwd,
+        shell
+      })
       return { 
         stdout: stdout || '(no output)', 
         stderr: stderr || '',
