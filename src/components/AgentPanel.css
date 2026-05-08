@@ -53,7 +53,8 @@
 }
 
 .config-input,
-.config-textarea {
+.config-textarea,
+.config-select {
   width: 100%;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
@@ -62,6 +63,10 @@
   color: var(--text-primary);
   font-size: 13px;
   font-family: var(--font-ui);
+}
+
+.config-select {
+  cursor: pointer;
 }
 
 .config-input:read-only,
@@ -192,9 +197,22 @@
   font-size: 12px;
 }
 
+.tool-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .tool-name {
   font-size: 13px;
   color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.tool-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 .available-tools h4 {
@@ -315,4 +333,93 @@
 .action-btn.kill:hover {
   border-color: var(--accent-error);
   color: var(--accent-error);
+}
+
+.agents-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loading {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 20px;
+}
+
+.agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agent-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.agent-card:hover {
+  border-color: var(--accent-primary);
+}
+
+.agent-card.active {
+  border-color: var(--accent-primary);
+  background: rgba(139, 148, 158, 0.15);
+}
+
+.agent-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.agent-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.default-badge {
+  background: var(--accent-primary);
+  color: var(--text-primary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.agent-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.agent-card-meta {
+  display: flex;
+  gap: 8px;
+}
+
+.agent-mode {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(139, 148, 158, 0.2);
+  color: var(--text-secondary);
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.agent-native {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(126, 231, 135, 0.15);
+  color: var(--accent-secondary);
+  border-radius: 3px;
+  text-transform: uppercase;
 }

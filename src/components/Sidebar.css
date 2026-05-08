@@ -447,3 +447,81 @@
 .active-model-banner .active-name {
   font-weight: 600;
 }
+
+.agent-status-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.status-row:last-child {
+  border-bottom: none;
+}
+
+.status-value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.status-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.status-badge.idle {
+  background: rgba(126, 231, 135, 0.15);
+  color: #7ee787;
+}
+
+.built-in-tools {
+  margin-top: 16px;
+}
+
+.built-in-tools h4 {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.tool-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tool-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.select-label {
+  flex: 1;
+  font-size: 11px;
+  padding: 6px 8px;
+  color: var(--text-secondary);
+}
+
+.select-label.active {
+  color: var(--accent-secondary);
+  font-weight: 600;
+}

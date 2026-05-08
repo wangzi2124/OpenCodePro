@@ -1,0 +1,19 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  background-color: #1E1E1E;
+  font-family: Arial, sans-serif;
+}
+div {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+tetris-game {
+  background-color: #2B2B2B;
+  border-radius: 8px;
+  padding: 20px;
+  width: 50%;
+}

@@ -1,30 +1,56 @@
 import { useState, useEffect } from 'react'
-import { useAgentStore, useModelStore } from '../store'
-import { AgentStatus } from '../types'
+import { useModelStore, useChatStore } from '../store'
 import './AgentPanel.css'
 
 function AgentPanel() {
   const [activeTab, setActiveTab] = useState('config')
-  
-  const agents = useAgentStore(state => state.agents)
-  const mainAgent = useAgentStore(state => state.getMainAgent())
-  const subAgents = useAgentStore(state => state.getSubAgents())
-  const updateAgentStatus = useAgentStore(state => state.updateAgentStatus)
-  const killAgent = useAgentStore(state => state.killAgent)
-  const getActiveModel = useModelStore(state => state.getActiveModel)
   const activeModelId = useModelStore(state => state.activeModelId)
+  const getActiveModel = useModelStore(state => state.getActiveModel)
+  const activeModel = getActiveModel()
+  const agentMode = useChatStore(state => state.agentMode)
+  const setAgentMode = useChatStore(state => state.setAgentMode)
+  const availableAgents = useChatStore(state => state.availableAgents)
   
-  const [activeModel, setActiveModel] = useState(null)
+  const [agents, setAgents] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setActiveModel(getActiveModel())
-  }, [activeModelId, getActiveModel])
+    fetchAgents()
+  }, [])
+
+  const fetchAgents = async () => {
+    try {
+      const res = await fetch('/api/agents')
+      const data = await res.json()
+      setAgents(data.agents || [])
+    } catch (e) {
+      console.error('Failed to fetch agents:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const tabs = [
     { id: 'config', label: 'Config' },
-    { id: 'memory', label: 'Memory' },
-    { id: 'tools', label: 'Tools' }
+    { id: 'tools', label: 'Tools' },
+    { id: 'agents', label: 'Agents' }
   ]
+
+  const tools = [
+    { name: 'read_file', desc: '读取文件内容', enabled: true },
+    { name: 'write_file', desc: '写入文件内容', enabled: true },
+    { name: 'edit_file', desc: '编辑文件（替换文本）', enabled: true },
+    { name: 'glob_search', desc: '按模式查找文件', enabled: true },
+    { name: 'grep_search', desc: '搜索文件内容', enabled: true },
+    { name: 'run_bash', desc: '执行终端命令', enabled: true },
+    { name: 'fetch_url', desc: '获取网页内容', enabled: true },
+    { name: 'web_search', desc: '网络搜索', enabled: true },
+    { name: 'agent_kill', desc: '终止 Agent', enabled: true }
+  ]
+
+  const getAgentInfo = (name) => {
+    return agents.find(a => a.name === name) || {}
+  }
 
   return (
     <div className="agent-panel">
@@ -41,135 +67,98 @@ function AgentPanel() {
       </div>
 
       <div className="panel-content">
-        {activeTab === 'config' && mainAgent && (
+        {activeTab === 'config' && (
           <div className="config-section">
             <div className="config-group">
-              <label>Name</label>
+              <label>Agent</label>
+              <select
+                value={agentMode}
+                onChange={(e) => setAgentMode(e.target.value)}
+                className="config-select"
+              >
+                {agents.map(agent => (
+                  <option key={agent.name} value={agent.name}>
+                    {agent.name} {agent.native ? '(native)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="config-group">
+              <label>Description</label>
               <input 
                 type="text" 
-                value={mainAgent.name} 
+                value={getAgentInfo(agentMode).description || 'No description'} 
                 readOnly 
-                className="config-input"
+                className="config-input" 
               />
             </div>
-            
+
+            <div className="config-group">
+              <label>Mode</label>
+              <input 
+                type="text" 
+                value={getAgentInfo(agentMode).mode || 'primary'} 
+                readOnly 
+                className="config-input" 
+              />
+            </div>
+
             <div className="config-group">
               <label>Model</label>
-              <input 
-                type="text" 
-                value={activeModel?.name || 'Not selected'} 
-                readOnly 
-                className="config-input"
-              />
+              <input type="text" value={activeModel?.name || 'Not selected'} readOnly className="config-input" />
             </div>
-            
+
             <div className="config-group">
               <label>Status</label>
-              <span className={`status-badge ${mainAgent.status}`}>
-                {mainAgent.status}
-              </span>
+              <span className="status-badge idle">就绪</span>
             </div>
-            
-            <div className="config-group">
-              <label>System Prompt</label>
-              <textarea 
-                value={mainAgent.systemPrompt} 
-                readOnly 
-                className="config-textarea"
-                rows={4}
-              />
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'memory' && (
-          <div className="memory-section">
-            <div className="memory-stats">
-              <div className="stat-item">
-                <span className="stat-label">Messages</span>
-                <span className="stat-value">{mainAgent?.messages?.length || 0}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">SubAgents</span>
-                <span className="stat-value">{subAgents.length}</span>
-              </div>
-            </div>
-            
-            {mainAgent?.messages?.length > 0 && (
-              <div className="message-list">
-                {mainAgent.messages.slice(-5).map((msg, i) => (
-                  <div key={i} className="memory-message">
-                    <span className="msg-type">{msg.type || 'msg'}</span>
-                    <span className="msg-preview">
-                      {typeof msg === 'string' ? msg.slice(0, 50) : JSON.stringify(msg).slice(0, 50)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
         {activeTab === 'tools' && (
           <div className="tools-section">
             <div className="tool-list">
-              {mainAgent?.tools?.map(tool => (
-                <div key={tool} className="tool-item">
-                  <span className="tool-icon">✓</span>
-                  <span className="tool-name">{tool}</span>
+              {tools.map(tool => (
+                <div key={tool.name} className="tool-item">
+                  <span className="tool-icon">{tool.enabled ? '✓' : '-'}</span>
+                  <div className="tool-info">
+                    <span className="tool-name">{tool.name}</span>
+                    <span className="tool-desc">{tool.desc}</span>
+                  </div>
                 </div>
               ))}
             </div>
-            
-            <div className="available-tools">
-              <h4>Available Tools</h4>
-              <div className="tool-grid">
-                {['read', 'write', 'search', 'bash', 'web', 'edit', 'glob', 'grep'].map(tool => (
+          </div>
+        )}
+
+        {activeTab === 'agents' && (
+          <div className="agents-section">
+            {loading ? (
+              <div className="loading">Loading agents...</div>
+            ) : (
+              <div className="agent-list">
+                {agents.map(agent => (
                   <div 
-                    key={tool} 
-                    className={`tool-chip ${mainAgent?.tools?.includes(tool) ? 'enabled' : ''}`}
+                    key={agent.name} 
+                    className={`agent-card ${agentMode === agent.name ? 'active' : ''}`}
+                    onClick={() => setAgentMode(agent.name)}
                   >
-                    {tool}
+                    <div className="agent-card-header">
+                      <span className="agent-card-name">{agent.name}</span>
+                      {agent.default && <span className="default-badge">default</span>}
+                    </div>
+                    <div className="agent-card-desc">{agent.description || 'No description'}</div>
+                    <div className="agent-card-meta">
+                      <span className="agent-mode">{agent.mode}</span>
+                      {agent.native && <span className="agent-native">native</span>}
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
+            )}
           </div>
         )}
-      </div>
-
-      <div className="sub-agents-section">
-        <h4>Active SubAgents ({subAgents.length})</h4>
-        <div className="sub-agent-list">
-          {subAgents.length === 0 ? (
-            <p className="no-agents">No sub-agents running</p>
-          ) : (
-            subAgents.map(agent => (
-              <div key={agent.id} className="sub-agent-card">
-                <div className="sub-agent-header">
-                  <span className="sub-agent-name">{agent.name}</span>
-                  <span className={`sub-agent-status ${agent.status}`}>
-                    {agent.status}
-                  </span>
-                </div>
-                <div className="sub-agent-actions">
-                  <button 
-                    className="action-btn"
-                    onClick={() => updateAgentStatus(agent.id, AgentStatus.IDLE)}
-                  >
-                    Reset
-                  </button>
-                  <button 
-                    className="action-btn kill"
-                    onClick={() => killAgent(agent.id)}
-                  >
-                    Kill
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
       </div>
     </div>
   )

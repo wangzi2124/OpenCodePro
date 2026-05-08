@@ -1,32 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
-import { useAgentStore } from '../store'
 import './Terminal.css'
 
 function Terminal() {
   const [output, setOutput] = useState([])
   const [input, setInput] = useState('')
   const outputRef = useRef(null)
-  
-  const subAgents = useAgentStore(state => state.getSubAgents())
 
   useEffect(() => {
-    const logs = [
+    setOutput([
       { type: 'info', text: 'OpenCode Pro Terminal v1.0.0' },
-      { type: 'system', text: 'Main agent initialized' },
-      { type: 'success', text: `Connected to ${subAgents.length} auxiliary agents` },
+      { type: 'info', text: 'ReAct Agent - Reasoning + Acting pattern' },
+      { type: 'success', text: '9 tools registered and ready' },
       { type: 'info', text: 'Ready for commands...' }
-    ]
-    setOutput(logs)
+    ])
   }, [])
-
-  useEffect(() => {
-    if (subAgents.length > 0) {
-      setOutput(prev => [...prev, { 
-        type: 'agent', 
-        text: `Agent spawned: ${subAgents[subAgents.length - 1].name}` 
-      }])
-    }
-  }, [subAgents])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -45,33 +32,33 @@ function Terminal() {
   }
 
   const executeCommand = (cmd) => {
-    const [command, ...args] = cmd.split(' ')
-    
+    const [command] = cmd.split(' ')
+
     switch (command.toLowerCase()) {
       case 'help':
         return `Available commands:
-  help          - Show this help
-  agents        - List all agents
-  kill <id>     - Kill agent by ID
-  status       - Show system status
-  clear        - Clear terminal`
-      
-      case 'agents':
-        if (subAgents.length === 0) return 'No auxiliary agents running'
-        return subAgents
-          .map(a => `${a.id.slice(0, 8)} - ${a.name} (${a.status})`)
-          .join('\n')
-      
+  help    - Show this help
+  status  - Show system status
+  tools   - List registered tools
+  clear   - Clear terminal`
+
       case 'status':
         return `System Status:
-  Main Agent: Active
-  SubAgents: ${subAgents.length}
-  Memory: ${(performance.memory?.usedJSHeapSize / 1024 / 1024 || 0).toFixed(1)} MB`
-      
+  Agent: ReAct Agent (ready)
+  Tools: 9 registered
+  Backend: FastAPI (localhost:3001)`
+
+      case 'tools':
+        return `Registered Tools:
+  read_file, write_file, edit_file
+  glob_search, grep_search
+  run_bash
+  fetch_url, web_search, code_search`
+
       case 'clear':
         setOutput([])
         return null
-      
+
       default:
         return `Command not found: ${command}`
     }
@@ -84,7 +71,6 @@ function Terminal() {
       success: 'term-success',
       error: 'term-error',
       warning: 'term-warning',
-      agent: 'term-agent',
       command: 'term-command',
       response: 'term-response'
     }
@@ -101,7 +87,7 @@ function Terminal() {
           <button className="term-btn close">×</button>
         </div>
       </div>
-      
+
       <div className="terminal-output" ref={outputRef}>
         {output.map((line, i) => (
           <div key={i} className={`terminal-line ${getTypeClass(line.type)}`}>
@@ -109,7 +95,7 @@ function Terminal() {
           </div>
         ))}
       </div>
-      
+
       <form className="terminal-input" onSubmit={handleSubmit}>
         <span className="prompt">$</span>
         <input

@@ -2,7 +2,6 @@ export const ModelProvider = {
   OPENAI: 'openai',
   ANTHROPIC: 'anthropic',
   GEMINI: 'gemini',
-  OLLAMA: 'ollama',
   CUSTOM: 'custom'
 }
 
