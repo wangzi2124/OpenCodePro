@@ -8,21 +8,32 @@ const defaultModels = [
 
 export const useModelStore = create((set, get) => ({
   models: defaultModels,
+  customModels: [],
   activeModelId: 'qwen2.5:latest',
 
   setActiveModel: (modelId) => set({ activeModelId: modelId }),
 
+  addModel: (model) => set((state) => ({
+    customModels: [...state.customModels, { ...model, id: `custom-${Date.now()}` }]
+  })),
+
   updateModel: (modelId, updates) => set((state) => ({
-    models: state.models.map(m => m.id === modelId ? { ...m, ...updates } : m)
+    models: state.models.map(m => m.id === modelId ? { ...m, ...updates } : m),
+    customModels: state.customModels.map(m => m.id === modelId ? { ...m, ...updates } : m)
+  })),
+
+  removeModel: (modelId) => set((state) => ({
+    models: state.models.filter(m => m.id !== modelId),
+    customModels: state.customModels.filter(m => m.id !== modelId)
   })),
 
   getActiveModel: () => {
-    const { models, activeModelId } = get()
-    return models.find(m => m.id === activeModelId)
+    const { models, customModels, activeModelId } = get()
+    return [...models, ...customModels].find(m => m.id === activeModelId)
   },
 
   getAllModels: () => {
-    const { models } = get()
-    return models
+    const { models, customModels } = get()
+    return [...models, ...customModels]
   }
 }))

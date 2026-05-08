@@ -21,7 +21,7 @@ function Sidebar() {
     setActiveModelData(getActiveModel())
   }, [activeModelId, getActiveModel])
 
-  const allModels = [...models, ...customModels]
+  const allModels = [...models]
 
   const handleAddModel = () => {
     addModel({
