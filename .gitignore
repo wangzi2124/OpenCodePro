@@ -1,5 +1,7 @@
 node_modules/
-backend/__pycache__/
-backend/routes/__pycache__/
-tools/__pycache__/
-agent/__pycache__/
+fresh_env/
+project/
+logs/
+*.log
+*.pyc
+*.pyo
