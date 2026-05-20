@@ -1,0 +1,12 @@
+Search the web for information. Perform real-time web searches.
+
+Parameters:
+- query: The search query (required)
+- num_results: Number of results to return (optional, default 8)
+
+Usage:
+- Use for: researching libraries, finding solutions, checking documentation
+- Use webfetch to read the content of specific URLs found in search results
+
+Examples:
+- web_search(query="python async await example") - Search for Python async patterns

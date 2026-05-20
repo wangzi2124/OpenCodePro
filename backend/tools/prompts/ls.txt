@@ -1,0 +1,6 @@
+List the contents of a directory.
+
+Parameters:
+- path: Absolute path to the directory (required)
+
+Returns the list of files and subdirectories in the given path.

@@ -1,0 +1,13 @@
+Interact with Language Server Protocol for code intelligence.
+
+Parameters:
+- action: "diagnostics" | "completions" | "hover" | "definition" (required)
+- file_path: Path to the file (required for all actions)
+- position: Line and character position (required for completions/hover/definition)
+- language: Programming language (optional, auto-detected)
+
+Actions:
+- diagnostics: Get all diagnostics (errors/warnings) for a file
+- completions: Get code completions at a position
+- hover: Get hover information (type signatures, docs)
+- definition: Go to definition of a symbol

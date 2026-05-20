@@ -1,0 +1,8 @@
+Semantic code search using vector embeddings. Find code by meaning, not just exact matches.
+
+Parameters:
+- query: Natural language description of what to find (required)
+- path: Directory to search in (optional)
+- include: File patterns to include (optional)
+
+Use when you need to find code by concept rather than exact string matching.

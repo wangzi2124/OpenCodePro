@@ -1,0 +1,5 @@
+Apply a diff patch to files. Use unified diff format to make changes.
+
+Parameters:
+- patch_content: The unified diff/patch content to apply (required)
+- reverse: If true, reverse the patch (optional, default false)

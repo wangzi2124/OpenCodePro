@@ -1,0 +1,17 @@
+Create or update the todo list for the active session. Track tasks and progress.
+
+Parameters:
+- todos: Array of todo items, each with:
+  - content: Brief description of the task (required)
+  - status: "pending" | "in_progress" | "completed" | "cancelled" (required)
+  - priority: "high" | "medium" | "low" (optional, default "medium")
+
+Rules:
+- Only ONE task should be in_progress at any time
+- Mark tasks as completed immediately after finishing
+- Break complex tasks into smaller, manageable steps
+- Update the todo list as progress is made
+
+Examples:
+- Add initial plan: todowrite(todos=[{content: "Set up project", status: "in_progress", priority: "high"}, {content: "Write tests", status: "pending"}])
+- Mark complete: todowrite(todos=[{content: "Set up project", status: "completed"}, {content: "Write tests", status: "in_progress"}])

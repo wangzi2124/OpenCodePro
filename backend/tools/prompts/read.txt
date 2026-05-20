@@ -1,0 +1,15 @@
+Read the contents of a file. You can read files from the local filesystem.
+
+Parameters:
+- file_path: Absolute path to the file to read (required)
+- offset: Line number to start reading from (optional, 1-indexed)
+- limit: Maximum number of lines to read (optional, defaults to 2000)
+
+Usage:
+- Always use absolute paths
+- Read large files in chunks using offset and limit
+- Binary files will be detected and handled appropriately
+
+Examples:
+- Read entire file: read_file(file_path="/path/to/file.py")
+- Read specific lines: read_file(file_path="/path/to/file.py", offset=10, limit=50)

@@ -1,6 +1,6 @@
 # OpenCode Pro
 
-基于 OpenCode 官方 (anomalyco/opencode) vscode-v0.0.13 分支重构的 AI 编程助手。
+基于 [OpenCode](https://opencode.ai) (anomalyco/opencode) vscode-v0.0.13 重构的 AI 编程助手。
 
 ## 快速开始
 
@@ -8,197 +8,257 @@
 
 ```bash
 npm install
-npm run dev
+npm run dev      # 开发服务器 http://localhost:5173
+npm run build    # 生产构建
 ```
-
-访问 http://localhost:5173
 
 ### 后端
 
 ```bash
 cd backend
 pip install -r requirements.txt
-python main.py
+python main.py   # API 服务 http://localhost:3001
 ```
-
-后端运行在 http://localhost:3001
 
 ---
 
 ## 系统架构
 
-### 业务流程
+### 目录结构
 
 ```
-用户请求 → routes/proxy.py → LLM (ReAct循环) → Tools → SSE流式响应
-                ↓
-         SessionManager (对话历史)
-         ProjectManager (项目上下文)
-         PermissionManager (权限检查)
-         StorageManager (数据持久化)
+src/                      # React + Vite 前端
+├── components/           # ChatArea, Sidebar, AgentPanel, Terminal, Tetris
+├── store/                # chatStore, modelStore, ragStore (Zustand)
+└── styles/               # CSS (暗色主题)
+
+backend/                  # FastAPI 后端
+├── main.py               # Uvicorn 入口
+├── __init__.py            # FastAPI app 创建 + 事件总线初始化
+│
+├── routes/
+│   └── proxy.py          # SSE 流式 Agent 端点 + 事件总线SSE端点
+│
+├── agent/
+│   ├── agent_def.py      # Agent 注册、权限检查
+│   ├── prompts.py        # 提示词加载器 (从 .txt 文件加载)
+│   └── prompts/          # Agent 提示词 .txt 文件 (5个)
+│       ├── generate.txt, explore.txt
+│       ├── compaction.txt, title.txt
+│       └── summary.txt
+│
+├── session/
+│   ├── session_manager.py
+│   └── prompts/          # 模型专属系统提示词 .txt 文件 (7个)
+│       ├── anthropic.txt, beast.txt, codex.txt
+│       ├── gemini.txt, qwen.txt, plan.txt
+│       └── build-switch.txt, max-steps.txt
+│
+├── command/
+│   └── templates/        # 斜杠命令模板 .txt 文件
+│       ├── initialize.txt, review.txt
+│
+├── tools/
+│   ├── chain_tools.py    # 所有工具 (LangChain @tool)
+│   ├── edit_replacer.py  # 8种替换策略
+│   ├── ripgrep_util.py   # ripgrep 搜索引擎
+│   ├── lsp_diagnostics.py
+│   ├── file_time.py      # 读前编辑校验
+│   └── prompts/          # 工具描述 .txt 文件 (17个)
+│
+├── provider/
+│   └── provider_manager.py  # 12个提供商, 53个模型, LLM缓存, 重试
+│
+├── bus/
+│   └── event_bus.py      # 事件总线 (发布/订阅 + SSE推送)
+│
+├── snapshot/
+│   └── snapshot_manager.py # 文件快照 (diff/回退)
+│
+├── skill/
+│   └── skill_def.py      # 7个内置技能
+│
+├── patch/
+│   └── patch_manager.py  # 补丁追踪/回退
+│
+├── permission/
+│   └── permission_manager.py # 危险命令检测
+│
+├── project/
+│   └── project_manager.py
+│
+├── storage/
+│   └── storage_manager.py # SQLite + 内存双写
+│
+├── vcs/
+│   └── git_client.py
+│
+├── mcp/
+│   ├── mcp_client.py     # MCP 协议客户端
+│   └── mcp_full.py
+│
+├── auth/
+│   └── auth_manager.py   # 认证系统
+│
+├── budget/
+│   └── token_manager.py  # Token 预算/计费
+│
+├── share/
+│   └── share_manager.py  # 会话分享
+│
+├── acp/
+│   └── acp_client.py     # Agent Client Protocol
+│
+├── lsp/
+│   └── lsp_client.py     # LSP 语言服务器客户端
+│
+├── config/
+│   └── config_manager.py
+└── retry/
+    └── retry_manager.py
 ```
 
-### 模块依赖关系
+### 请求执行流程
 
 ```
-main.py
-  └── __init__.py (FastAPI app)
-        ├── routes/proxy.py (核心调度器)
-        │     ├── AgentRegistry → agent/agent_def.py
-        │     ├── get_tools() → tools/chain_tools.py
-        │     ├── ContextEngine → project/project_manager.py
-        │     ├── create_llm() → provider/provider_manager.py
-        │     └── PermissionChecker → permission/permission_manager.py
-        │
-        ├── session/session_manager.py
-        ├── storage/storage_manager.py
-        ├── project/project_manager.py
-        ├── provider/provider_manager.py
-        ├── vcs/git_client.py
-        ├── mcp/mcp_client.py
-        └── retry/retry_manager.py
+Browser → POST /api/agent/run (SSE)
+                    ↓
+routes/proxy.py → ContextEngine.build_system_prompt()
+                    ↓
+            EventBus.publish(AGENT_START)
+                    ↓
+            create_llm() → LLM 实例 (有缓存)
+                    ↓
+            ReAct 循环 (最多30轮):
+              LLM.invoke() → 有 tool_calls?
+                ├─ 是 → 执行工具 → ToolMessage → 继续
+                │    └─ task_delegate? → 启动子Agent → 合并结果
+                └─ 否 → 输出 text-delta → final-answer
+                    ↓
+            EventBus.publish(AGENT_COMPLETE)
+                    ↓
+            StorageManager.save() → SQLite
 ```
 
 ---
 
-## 模块详解
+## 提示词系统
 
-### 核心模块
+采用 **独立 .txt 文件 + Python 加载器** 架构，与官方版一致。
 
-| 模块 | 文件 | 职责 | 关键类/函数 |
-|------|------|------|-------------|
-| **入口** | `main.py` | FastAPI + Uvicorn 启动 | - |
-| **调度器** | `routes/proxy.py` | 请求路由、SSE流式、ReAct循环 | `AgentRequest`, `ContextEngine`, `sse_event()` |
-| **Agent定义** | `agent/agent_def.py` | Agent注册、权限检查 | `AgentRegistry`, `PermissionChecker` |
-| **Agent提示词** | `agent/prompts.py` | 各Agent系统提示词 | `GENERATE_PROMPT`, `EXPLORE_PROMPT` |
-| **工具集** | `tools/chain_tools.py` | LangChain工具实现 | `read_file`, `write_file`, `edit_file`, `run_bash` |
+### Agent 提示词 (`backend/agent/prompts/`)
 
-### 支持模块
+| 文件 | 用途 |
+|------|------|
+| `generate.txt` | build agent - 代码生成 |
+| `explore.txt` | explore agent - 代码探索 |
+| `compaction.txt` | 上下文压缩/摘要 |
+| `title.txt` | 对话标题生成 |
+| `summary.txt` | 变更摘要生成 |
 
-| 模块 | 文件 | 职责 | 关键类 |
-|------|------|------|--------|
-| **模型层** | `provider/provider_manager.py` | LLM调用、缓存、重试 | `LLMCache`, `RetryHandler`, `OpenAIProvider` |
-| **会话管理** | `session/session_manager.py` | 对话历史存储 | `Session`, `SessionManager` |
-| **权限管理** | `permission/permission_manager.py` | 危险命令检测 | `PermissionManager`, `CommandWarning` |
-| **项目分析** | `project/project_manager.py` | 项目上下文加载 | `ProjectManager`, `ProjectState` |
-| **数据存储** | `storage/storage_manager.py` | SQLite持久化 | `StorageManager`, `CacheManager` |
-| **Git操作** | `vcs/git_client.py` | Git状态/diff/log | `GitClient`, `GitCommit` |
-| **MCP协议** | `mcp/mcp_client.py` | MCP服务器连接 | `MCPClient`, `MCPServer` |
-| **重试机制** | `retry/retry_manager.py` | 指数退避重试 | `RetryManager`, `RetryConfig` |
+### 模型专属提示词 (`backend/session/prompts/`)
+
+| 文件 | 适用模型 | 特点 |
+|------|----------|------|
+| `anthropic.txt` | Claude 系列 | 专业性、任务管理、工具策略 |
+| `beast.txt` | GPT-4/o 系列 | 自主性、深度推理、互联网调研 |
+| `codex.txt` | GPT-5/Codex | 精确规范、沙箱安全、代码风格 |
+| `gemini.txt` | Google Gemini | 核心指令、主流程、安全规则 |
+| `qwen.txt` | Qwen/Llama 等 | 简洁风格、安全约束、低token |
+| `plan.txt` | 所有模型(Plan模式) | 只读分析、禁止修改 |
+| `build-switch.txt` | 所有模型 | Plan→Build 模式切换指令 |
+
+### 工具描述提示词 (`backend/tools/prompts/`)
+
+每个工具一个 `.txt` 文件，供 LLM 理解工具用法。
 
 ---
 
-## 核心流程详解
+## 提供商系统
 
-### 1. 请求入口 (`/api/agent/run`)
+| 提供商 | 模型数 | 支持工具 | 需要 API Key |
+|--------|--------|---------|-------------|
+| **Ollama** | 13 | ✅ | `OLLAMA_BASE_URL` (默认 localhost:11434) |
+| **OpenAI** | 7 | ✅ | `OPENAI_API_KEY` |
+| **Anthropic** | 4 | ✅ | `ANTHROPIC_API_KEY` |
+| **OpenRouter** | 8 | ✅ | `OPENROUTER_API_KEY` |
+| **Groq** | 4 | ✅ | `GROQ_API_KEY` |
+| **Google Gemini** | 3 | ✅ | `GOOGLE_API_KEY` |
+| **DeepSeek** | 2 | ✅ | `DEEPSEEK_API_KEY` |
+| **Together AI** | 4 | ✅ | `TOGETHER_API_KEY` |
+| **Perplexity** | 2 | - | `PERPLEXITY_API_KEY` |
+| **xAI (Grok)** | 2 | ✅ | `XAI_API_KEY` |
+| **DeepInfra** | 2 | ✅ | `DEEPINFRA_API_KEY` |
+| **Mistral** | 2 | ✅ | `MISTRAL_API_KEY` |
 
-```python
-# routes/proxy.py
-@router.post("/agent/run")
-async def run_agent(req: AgentRequest):
-    # 1. 加载会话历史
-    history = req.history or StorageManager.get(f"session:{session_id}")
-    
-    # 2. 构建上下文
-    ctx_engine = ContextEngine(req)
-    system_prompt = ctx_engine.build_system_prompt(agent_info)
-    
-    # 3. 创建LLM实例
-    llm = create_llm(req.model, req.endpoint, req.is_local)
-    llm_with_tools = llm.bind_tools(tools)
-    
-    # 4. ReAct循环执行
-    async for event in stream_llm_response(llm, tools, messages):
-        yield sse_event(...)
-```
+所有 OpenAI 兼容的提供商通过 `OpenAICompatibleProvider` 统一接入。
 
-### 2. LLM缓存策略 (`provider_manager.py`)
+---
 
-```python
-class LLMCache:
-    _llm_instances: Dict[str, ChatOpenAI] = {}  # 按provider+model+endpoint缓存
-    _max_cache_size = 10  # 最多10个实例
-    _last_used: Dict[str, float] = {}  # LRU淘汰时间戳
-    
-    @classmethod
-    def get(cls, provider, model, base_url):
-        key = f"{provider}|{model}|{base_url}"
-        if key in cls._llm_instances:
-            cls._last_used[key] = time.time()  # 更新访问时间
-            return cls._llm_instances[key]
-        return None
-```
+## 工具系统
 
-### 3. 权限检查 (`permission_manager.py`)
+| 工具 | 功能 |
+|------|------|
+| `read_file` | 读取文件 (支持 offset/limit) |
+| `write_file` | 创建/覆盖文件 |
+| `edit_file` | 精确文本替换 (8种匹配策略) |
+| `glob_search` | 文件通配符搜索 |
+| `grep_search` | 正则内容搜索 |
+| `run_bash` | Shell 命令执行 (含权限检查) |
+| `fetch_url` | HTTP 网页获取 |
+| `web_search` | 网络搜索 |
+| `batch_edit` | 批量文件编辑 |
+| `task_delegate` | 子 Agent 任务委派 |
+| `task_status` | 查询子任务状态 |
+| `codesearch` | 语义代码搜索 (关键词提取) |
+| `multiedit` | 跨文件多编辑 |
+| `lsp_diagnostics` | LSP 诊断查询 |
+| `todo_read` | 读取任务列表 |
+| `todo_write` | 更新任务列表 |
+| `skill_list` | 列出技能 |
+| `skill_invoke` | 调用技能 |
 
-```python
-class PermissionChecker:
-    @staticmethod
-    def check(tool_name, args, permission):
-        # 1. edit权限: write_file, edit_file, batch_edit
-        # 2. bash权限: glob模式匹配 (*, rm*, git*)
-        # 3. skill权限: skill_invoke
-        # 4. web权限: fetch_url, web_search
-```
+---
 
-### 4. 工具执行 (`tools/chain_tools.py`)
+## 事件总线系统
 
-```python
-@tool
-def read_file(file_path: str, offset: int = 0, limit: int = 2000):
-    """读取文件，支持行号范围"""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-    return "\n".join(f"{i+1}: {lines[i]}" ...)
+全局事件总线，支持发布/订阅 + SSE 实时推送。
 
-@tool
-def run_bash(command: str, workdir: str = None, timeout: int = 120):
-    """执行命令，集成PermissionManager"""
-    warning = PermissionManager.check_command(command)
-    if warning.danger_level == DangerLevel.SAFE:
-        return _execute_command(command, workdir, timeout)
-```
+| 事件 | 触发时机 | data |
+|------|---------|------|
+| `agent.start` | Agent 开始执行 | `{session_id, model, agent, query}` |
+| `agent.complete` | Agent 执行完成 | `{session_id, iterations}` |
+| `agent.error` | Agent 执行出错 | `{session_id, error}` |
+| `tool.start` | 工具开始执行 | `{tool, args, session_id}` |
+| `tool.end` | 工具执行完成 | `{tool, status, session_id}` |
+| `session.created` | 会话创建 | - |
+| `system.startup` | 后端启动 | `{version}` |
 
-### 5. 重试机制 (`provider_manager.py`)
-
-```python
-class RetryHandler:
-    RETRY_INITIAL_DELAY = 2.0      # 初始延迟2秒
-    RETRY_BACKOFF_FACTOR = 2        # 指数退避因子
-    RETRY_MAX_DELAY = 30.0          # 最大延迟30秒
-    
-    @staticmethod
-    def is_retryable(error):
-        # 检测: Overloaded, rate_limit, server_error
-        ...
-    
-    @staticmethod
-    def calculate_delay(attempt, error=None, headers=None):
-        # 优先读取 retry-after-ms 头
-        # 否则: delay = 2 * 2^(attempt-1)
-```
+订阅: `GET /api/events` (SSE)
 
 ---
 
 ## SSE 事件流
 
 ```
-连接建立 → start (session_id, model, agent)
-     ↓
+连接建立 → agent.start
+    ↓
 thought (Processing request...)
-     ↓
+    ↓
 工具调用循环:
-  tool-start (tool_name, args)
+  tool-start (tool, args)
   tool-end (result, status)
   tool-loop-complete (iteration)
-     ↓
-text-delta (实时文本片段)
-     ↓
+    ↓
+  (可选) task_delegate → 子Agent执行 → tool-end
+    ↓
+text-delta (实时文本)
+    ↓
 final-answer (完整回复)
-     ↓
-complete (会话结束)
-     ↓
-heartbeat (每25秒保活)
+    ↓
+agent.complete
+    ↓
+complete (session_id)
 ```
 
 ### 事件类型
@@ -220,34 +280,71 @@ heartbeat (每25秒保活)
 
 ## Agent 系统
 
-| Agent | 权限 | 提示词 |
-|-------|------|--------|
-| `build` | edit✅ bash✅ web✅ | 通用开发 |
-| `plan` | edit❌ bash⚠️ web✅ | 只读分析 |
-| `explore` | edit❌ bash❌ web✅ | 快速探索 |
-| `general` | edit✅ bash✅ web✅ | 通用研究 |
+| Agent | Edit | Bash | Web | 模式 |
+|-------|------|------|-----|------|
+| `build` | ✅ 允许 | ✅ 允许 | ✅ 允许 | 全功能开发 |
+| `plan` | ❌ 禁止 | ⚠️ 仅安全命令 | ✅ 允许 | 只读分析 |
+| `explore` | ❌ 禁止 | ❌ 禁止 | ✅ 允许 | 代码探索 |
+| `general` | ✅ 允许 | ✅ 允许 | ✅ 允许 | 通用研究 |
 
 ### 权限模式
 
-- `Permission.ALLOW` - 允许执行
-- `Permission.DENY` - 拒绝执行
-- `Permission.ASK` - 需用户确认
+- `ALLOW` - 允许执行
+- `DENY` - 拒绝执行
+- `ASK` - 需用户确认
 
 ---
 
-## 可用工具
+## 快照系统
 
-| 工具 | 功能 | 参数 |
+自动对文件写/编辑操作创建快照，支持 diff 和回退。
+
+| 端点 | 方法 | 用途 |
 |------|------|------|
-| `read_file` | 读取文件 | `file_path`, `offset=0`, `limit=2000` |
-| `write_file` | 创建文件 | `file_path`, `content` |
-| `edit_file` | 编辑文件 | `file_path`, `old_string`, `new_string` |
-| `glob_search` | 文件匹配 | `pattern`, `path="."` |
-| `grep_search` | 内容搜索 | `pattern`, `include="*"`, `path="."` |
-| `run_bash` | 执行命令 | `command`, `workdir`, `timeout=120` |
-| `fetch_url` | HTTP获取 | `url` |
-| `create_vite_project` | 脚手架 | `directory`, `template`, `name` |
-| `install_dependencies` | npm安装 | `directory` |
+| `/api/snapshot/take` | POST | 手动快照 |
+| `/api/snapshot/diff` | GET | 对比变更 |
+| `/api/snapshot/changed` | GET | 列出变更文件 |
+| `/api/snapshot/revert` | POST | 回退文件 |
+| `/api/snapshot/clear` | POST | 清除快照 |
+
+---
+
+## API 端点
+
+| 端点 | 方法 | 用途 |
+|------|------|------|
+| `/api/agent/run` | POST | 运行 Agent (SSE) |
+| `/api/agent/abort` | POST | 取消请求 |
+| `/api/events` | GET | 事件总线 SSE |
+| `/api/agents` | GET | 列出 Agent |
+| `/api/models` | GET | 列出模型 |
+| `/api/health` | GET | 健康检查 |
+| `/api/config` | GET | 配置信息 |
+| `/api/sessions` | GET | 会话列表 |
+| `/api/skills` | GET | 技能列表 |
+| `/api/mcp/servers` | GET | MCP 服务器 |
+| `/api/vcs/status` | GET | Git 状态 |
+| `/api/vcs/diff` | GET | Git diff |
+| `/api/project/info` | GET | 项目信息 |
+| `/api/permission/pending` | GET | 待审批操作 |
+| `/api/patch/list` | GET | 补丁列表 |
+| `/api/snapshot/changed` | GET | 变更文件列表 |
+
+---
+
+## 技能系统
+
+7 个内置技能 + 自定义技能 (`.opencode/skills/*.json`):
+
+| 技能 | 用途 | 使用工具 |
+|------|------|---------|
+| `read` | 阅读代码 | read, glob, grep |
+| `write` | 编写代码 | write, read, edit |
+| `refactor` | 重构代码 | read, edit, glob |
+| `debug` | 调试修复 | read, grep, bash |
+| `test` | 编写测试 | write, read, bash |
+| `explain` | 解释代码 | read, glob, grep |
+| `review` | 代码审查 | read, grep |
 
 ---
 
@@ -257,23 +354,34 @@ heartbeat (每25秒保活)
 - React 18 + Vite 5
 - Zustand (状态管理)
 - SSE 流式渲染
+- Framer Motion (动画)
 
 ### 后端
 - FastAPI + Uvicorn
-- LangChain (Ollama / OpenAI / Anthropic)
+- LangChain (Ollama / OpenAI / Anthropic / 12 providers)
 - SQLite (数据持久化)
+- 文件系统 KV 存储
 
 ---
 
-## 命令
+## 环境变量
 
 ```bash
-# 前端
-npm run dev      # 开发服务器 (5173)
-npm run build    # 生产构建
+# 本地模型
+OLLAMA_BASE_URL=http://localhost:11434
 
-# 后端
-python backend/main.py  # API 服务 (3001)
+# 云端 API
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+OPENROUTER_API_KEY=sk-or-...
+GROQ_API_KEY=gsk_...
+GOOGLE_API_KEY=AIza...
+DEEPSEEK_API_KEY=sk-...
+TOGETHER_API_KEY=...
+PERPLEXITY_API_KEY=...
+XAI_API_KEY=...
+DEEPINFRA_API_KEY=...
+MISTRAL_API_KEY=...
 ```
 
 ---
@@ -281,5 +389,5 @@ python backend/main.py  # API 服务 (3001)
 ## Windows 注意事项
 
 - 创建目录: `New-Item -ItemType Directory -Path "folder"`
-- 避免 `&&`，使用分号或分别运行命令
+- 避免 `&&`，使用 `;` 或分别运行
 - 使用 `curl.exe` 而非 `curl` 别名

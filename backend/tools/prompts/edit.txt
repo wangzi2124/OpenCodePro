@@ -1,0 +1,16 @@
+Make a targeted edit to an existing file by replacing exact text.
+
+Parameters:
+- file_path: Absolute path to the file to edit (required)
+- old_string: The exact text to replace (required)
+- new_string: The new text to insert (required)
+- replace_all: Replace all occurrences (optional, default false)
+
+Requirements:
+- The old_string must match exactly, including whitespace
+- The file must have been read before editing (read-before-edit enforcement)
+- Use replace_all=true to rename variables or change repeated patterns
+
+Examples:
+- Replace a single line: edit_file(file_path="/path/to/file.py", old_string="old_code()", new_string="new_code()")
+- Rename a function: edit_file(file_path="/path/to/file.py", old_string="oldFunc", new_string="newFunc", replace_all=true)

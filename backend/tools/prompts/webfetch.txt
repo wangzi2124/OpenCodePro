@@ -1,0 +1,14 @@
+Fetch content from a URL. Retrieve web page content for research.
+
+Parameters:
+- url: The URL to fetch (required)
+- format: Response format - "markdown", "text", or "html" (optional, default "markdown")
+- timeout: Timeout in seconds (optional, default 30)
+
+Usage:
+- Use for: reading documentation, API references, web articles
+- Results are converted to markdown by default
+- HTTP URLs are automatically upgraded to HTTPS
+
+Examples:
+- webfetch(url="https://docs.python.org/3/") - Fetch Python docs

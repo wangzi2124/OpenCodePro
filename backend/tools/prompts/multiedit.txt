@@ -1,0 +1,9 @@
+Make multiple targeted edits across multiple files in a single operation.
+
+Parameters:
+- edits: Array of edit operations, each with:
+  - file_path: Absolute path to the file (required)
+  - old_string: Exact text to replace (required)
+  - new_string: New text to insert (required)
+
+All edits succeed or fail as a group. More powerful than batch for cross-file changes.

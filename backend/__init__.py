@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routes import proxy
 from .storage.storage_manager import StorageManager
 from .config.config_manager import ConfigManager
+from .bus.event_bus import EventBus, EventType
 
 app = FastAPI(title="OpenCode Pro Backend", version="1.0.0")
 
@@ -11,6 +12,9 @@ StorageManager.initialize()
 
 # 加载配置
 ConfigManager.load()
+
+# 发布系统启动事件
+EventBus.publish(EventType.SYSTEM_STARTUP, {"version": "1.0.0"})
 
 app.add_middleware(
     CORSMiddleware,

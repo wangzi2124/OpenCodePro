@@ -1,0 +1,21 @@
+Execute a shell command. Use this tool to run terminal commands.
+
+Parameters:
+- command: The shell command to execute (required)
+- workdir: Working directory for the command (optional)
+- description: Clear description of what the command does (required)
+- timeout: Maximum execution time in milliseconds (optional, default 120000)
+
+Safety:
+- Commands are subject to permission checks
+- Dangerous commands (rm -rf, sudo, etc.) may be blocked or require confirmation
+- Explain non-trivial commands before executing
+
+Usage:
+- Use for: running tests, builds, git operations, npm/pip commands
+- Do NOT use for: file operations (use dedicated file tools instead)
+- Prefer file tools over bash for reading/writing/editing files
+
+Examples:
+- run_bash(command="npm test", description="Run project tests")
+- run_bash(command="git log --oneline -5", description="Show recent commits")

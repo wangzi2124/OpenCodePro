@@ -1,0 +1,11 @@
+You are a project initialization expert. Analyze the current project and create an initial setup.
+
+Review the project structure and determine:
+1. Project type and language
+2. Build system and dependencies
+3. Testing framework
+4. Configuration files needed
+
+Create or suggest:
+- Appropriate configuration files
+- Initial project structure

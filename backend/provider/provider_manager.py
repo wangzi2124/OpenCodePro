@@ -41,29 +41,81 @@ class ModelInfo:
 
 PROVIDER_MODELS = {
     "openai": [
-        ModelInfo("gpt-4", "GPT-4", "openai", 8192, True, True, True, {"prompt": 0.03, "completion": 0.06}),
-        ModelInfo("gpt-4-turbo", "GPT-4 Turbo", "openai", 128000, True, True, True, {"prompt": 0.01, "completion": 0.03}),
-        ModelInfo("gpt-3.5-turbo", "GPT-3.5 Turbo", "openai", 16385, True, False, True, {"prompt": 0.001, "completion": 0.002}),
+        ModelInfo("gpt-4.1", "GPT-4.1", "openai", 1048576, True, True, True, {"prompt": 0.002, "completion": 0.008}),
+        ModelInfo("gpt-4.1-mini", "GPT-4.1 Mini", "openai", 1048576, True, True, True, {"prompt": 0.0004, "completion": 0.0016}),
+        ModelInfo("gpt-4.1-nano", "GPT-4.1 Nano", "openai", 1048576, True, False, True, {"prompt": 0.0001, "completion": 0.0004}),
+        ModelInfo("gpt-4o", "GPT-4o", "openai", 128000, True, True, True, {"prompt": 0.0025, "completion": 0.01}),
+        ModelInfo("gpt-4o-mini", "GPT-4o Mini", "openai", 128000, True, True, True, {"prompt": 0.00015, "completion": 0.0006}),
+        ModelInfo("o3-mini", "o3-mini", "openai", 200000, True, False, True, {"prompt": 0.0011, "completion": 0.0044}),
         ModelInfo("o4-mini", "o4-mini", "openai", 65536, True, False, True, {"prompt": 0.001, "completion": 0.004}),
     ],
     "anthropic": [
+        ModelInfo("claude-sonnet-4-20250514", "Claude Sonnet 4", "anthropic", 200000, True, True, True, {"prompt": 0.003, "completion": 0.015}),
         ModelInfo("claude-3-5-sonnet-latest", "Claude 3.5 Sonnet", "anthropic", 200000, True, True, True, {"prompt": 0.003, "completion": 0.015}),
+        ModelInfo("claude-3-5-haiku-latest", "Claude 3.5 Haiku", "anthropic", 200000, True, True, True, {"prompt": 0.0008, "completion": 0.004}),
         ModelInfo("claude-3-opus-latest", "Claude 3 Opus", "anthropic", 200000, True, True, True, {"prompt": 0.015, "completion": 0.075}),
-        ModelInfo("claude-3-sonnet-latest", "Claude 3 Sonnet", "anthropic", 200000, True, True, True, {"prompt": 0.003, "completion": 0.015}),
-        ModelInfo("claude-3-haiku-latest", "Claude 3 Haiku", "anthropic", 200000, True, True, True, {"prompt": 0.00025, "completion": 0.00125}),
     ],
     "ollama": [
-        ModelInfo("qwen2.5:latest", "Qwen 2.5", "ollama", 32768, True, False, True),
+        ModelInfo("qwen2.5:latest", "Qwen 2.5 (latest)", "ollama", 32768, True, False, True),
         ModelInfo("qwen2.5:32b", "Qwen 2.5 32B", "ollama", 32768, True, False, True),
-        ModelInfo("llama3:latest", "Llama 3", "ollama", 8192, True, False, True),
+        ModelInfo("qwen2.5-coder:latest", "Qwen 2.5 Coder", "ollama", 32768, True, False, True),
+        ModelInfo("llama3.2:latest", "Llama 3.2", "ollama", 8192, True, False, True),
+        ModelInfo("llama3.3:latest", "Llama 3.3", "ollama", 128000, True, False, True),
         ModelInfo("mistral:latest", "Mistral", "ollama", 8192, True, False, True),
+        ModelInfo("mixtral:latest", "Mixtral", "ollama", 32768, True, False, True),
         ModelInfo("deepseek-r1:7b", "DeepSeek R1 7B", "ollama", 32768, True, False, True),
-        ModelInfo("minimax:9b", "MiniMax 9B", "ollama", 32768, True, False, True),
+        ModelInfo("deepseek-coder-v2:latest", "DeepSeek Coder V2", "ollama", 65536, True, False, True),
+        ModelInfo("codestral:latest", "Codestral", "ollama", 32768, True, False, True),
+        ModelInfo("starcoder2:latest", "StarCoder2", "ollama", 16384, True, False, True),
+        ModelInfo("phi4:latest", "Phi-4", "ollama", 16384, True, False, True),
+        ModelInfo("gemma2:latest", "Gemma 2", "ollama", 8192, True, False, True),
     ],
     "openrouter": [
-        ModelInfo("anthropic/claude-3.5-sonnet", "Claude 3.5 Sonnet (OpenRouter)", "openrouter", 200000, True, True, True, {"prompt": 0.003, "completion": 0.015}),
-        ModelInfo("google/gemini-2.0-flash-exp", "Gemini 2.0 Flash", "openrouter", 32768, True, True, True),
-        ModelInfo("meta-llama/llama-3.1-8b-instruct", "Llama 3.1 8B", "openrouter", 128000, True, True, True),
+        ModelInfo("anthropic/claude-sonnet-4-20250514", "Claude Sonnet 4", "openrouter", 200000, True, True, True, {"prompt": 0.003, "completion": 0.015}),
+        ModelInfo("openai/gpt-4.1", "GPT-4.1", "openrouter", 1048576, True, True, True, {"prompt": 0.002, "completion": 0.008}),
+        ModelInfo("google/gemini-2.5-flash-preview-04-17", "Gemini 2.5 Flash", "openrouter", 1048576, True, True, True),
+        ModelInfo("google/gemini-2.5-pro-preview-03-25", "Gemini 2.5 Pro", "openrouter", 1048576, True, True, True),
+        ModelInfo("meta-llama/llama-4-maverick", "Llama 4 Maverick", "openrouter", 1048576, True, True, True),
+        ModelInfo("deepseek/deepseek-chat", "DeepSeek V3", "openrouter", 65536, True, False, True),
+        ModelInfo("deepseek/deepseek-r1", "DeepSeek R1", "openrouter", 65536, True, False, True),
+        ModelInfo("qwen/qwen-2.5-coder-32b", "Qwen 2.5 Coder 32B", "openrouter", 32768, True, False, True),
+    ],
+    "groq": [
+        ModelInfo("llama-3.3-70b-versatile", "Llama 3.3 70B", "groq", 128000, True, True, True, {"prompt": 0.00059, "completion": 0.00079}),
+        ModelInfo("llama-3.1-8b-instant", "Llama 3.1 8B", "groq", 128000, True, True, True, {"prompt": 0.00005, "completion": 0.00008}),
+        ModelInfo("mixtral-8x7b-32768", "Mixtral 8x7B", "groq", 32768, True, False, True),
+        ModelInfo("deepseek-r1-distill-llama-70b", "DeepSeek R1 70B", "groq", 128000, True, False, True),
+    ],
+    "google": [
+        ModelInfo("gemini-2.5-flash-preview-04-17", "Gemini 2.5 Flash", "google", 1048576, True, True, True),
+        ModelInfo("gemini-2.5-pro-preview-03-25", "Gemini 2.5 Pro", "google", 1048576, True, True, True),
+        ModelInfo("gemini-2.0-flash", "Gemini 2.0 Flash", "google", 1048576, True, True, True),
+    ],
+    "deepseek": [
+        ModelInfo("deepseek-chat", "DeepSeek V3", "deepseek", 65536, True, False, True, {"prompt": 0.00027, "completion": 0.0011}),
+        ModelInfo("deepseek-reasoner", "DeepSeek R1", "deepseek", 65536, True, False, True, {"prompt": 0.00055, "completion": 0.00219}),
+    ],
+    "together": [
+        ModelInfo("meta-llama/Llama-3.3-70B-Instruct-Turbo", "Llama 3.3 70B", "together", 128000, True, False, True),
+        ModelInfo("deepseek-ai/DeepSeek-V3", "DeepSeek V3", "together", 65536, True, False, True),
+        ModelInfo("Qwen/Qwen2.5-Coder-32B-Instruct", "Qwen 2.5 Coder 32B", "together", 32768, True, False, True),
+        ModelInfo("mistralai/Mixtral-8x22B-Instruct-v0.1", "Mixtral 8x22B", "together", 65536, True, False, True),
+    ],
+    "perplexity": [
+        ModelInfo("sonar-pro", "Sonar Pro", "perplexity", 200000, True, False, True),
+        ModelInfo("sonar", "Sonar", "perplexity", 200000, True, False, True),
+    ],
+    "xai": [
+        ModelInfo("grok-2-latest", "Grok 2", "xai", 131072, True, False, True),
+        ModelInfo("grok-3-latest", "Grok 3", "xai", 131072, True, False, True),
+    ],
+    "deepinfra": [
+        ModelInfo("meta-llama/Llama-3.3-70B-Instruct-Turbo", "Llama 3.3 70B", "deepinfra", 128000, True, True, True),
+        ModelInfo("Qwen/Qwen2.5-Coder-32B-Instruct", "Qwen 2.5 Coder 32B", "deepinfra", 32768, True, True, True),
+    ],
+    "mistral": [
+        ModelInfo("codestral-latest", "Codestral", "mistral", 256000, True, False, True, {"prompt": 0.001, "completion": 0.003}),
+        ModelInfo("mistral-large-latest", "Mistral Large", "mistral", 128000, True, True, True, {"prompt": 0.002, "completion": 0.006}),
     ],
 }
 
@@ -191,9 +243,7 @@ class OpenAIProvider(BaseProvider):
         self._client: Optional[ChatOpenAI] = None
     
     def _get_client(self) -> ChatOpenAI:
-        cache_key = f"openai|{self.model}|{self.base_url}"
-        
-        cached = LLMCache.get("openai", self.model, self.base_url)
+        cached = LLMCache.get("openai", self.model, self.base_url, self.api_key)
         if cached:
             return cached
         
@@ -206,7 +256,7 @@ class OpenAIProvider(BaseProvider):
             max_retries=0,
         )
         
-        LLMCache.set("openai", self.model, self.base_url, self.api_key, client)
+        LLMCache.set("openai", self.model, client, self.base_url, self.api_key)
         return client
     
     async def complete(self, messages: List[Dict], **kwargs) -> Dict:
@@ -279,9 +329,7 @@ class AnthropicProvider(BaseProvider):
         self._client = None
     
     def _get_client(self) -> ChatAnthropic:
-        cache_key = f"anthropic|{self.model}"
-        
-        cached = LLMCache.get("anthropic", self.model)
+        cached = LLMCache.get("anthropic", self.model, api_key=self.api_key)
         if cached:
             return cached
         
@@ -292,7 +340,7 @@ class AnthropicProvider(BaseProvider):
             max_retries=0,
         )
         
-        LLMCache.set("anthropic", self.model, api_key=self.api_key, llm=client)
+        LLMCache.set("anthropic", self.model, client, api_key=self.api_key)
         return client
     
     async def complete(self, messages: List[Dict], **kwargs) -> Dict:
@@ -365,8 +413,6 @@ class OllamaProvider(BaseProvider):
         self._client = None
     
     def _get_client(self) -> ChatOllama:
-        cache_key = f"ollama|{self.model}|{self.base_url}"
-        
         cached = LLMCache.get("ollama", self.model, self.base_url)
         if cached:
             return cached
@@ -377,7 +423,7 @@ class OllamaProvider(BaseProvider):
             timeout=httpx.Timeout(self.timeout, connect=5.0),
         )
         
-        LLMCache.set("ollama", self.model, self.base_url, llm=client)
+        LLMCache.set("ollama", self.model, client, self.base_url)
         return client
     
     async def complete(self, messages: List[Dict], **kwargs) -> Dict:
@@ -442,6 +488,73 @@ class OllamaProvider(BaseProvider):
         return True
 
 
+class OpenAICompatibleProvider(BaseProvider):
+    """Provider for any OpenAI-compatible API (Groq, Together, DeepSeek, Perplexity, xAI, etc.)"""
+    def __init__(self, api_key: str = None, base_url: str = None, model: str = "gpt-4", timeout: float = 120.0):
+        self.api_key = api_key or "not-needed"
+        self.base_url = base_url or "https://api.openai.com/v1"
+        self.model = model
+        self.timeout = timeout
+    
+    def _get_client(self) -> ChatOpenAI:
+        return ChatOpenAI(
+            model=self.model,
+            api_key=self.api_key,
+            base_url=self.base_url,
+            streaming=True,
+            timeout=httpx.Timeout(self.timeout, connect=10.0),
+            max_retries=0,
+        )
+    
+    async def complete(self, messages: List[Dict], **kwargs) -> Dict:
+        from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
+        lc_messages = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                lc_messages.append(SystemMessage(content=content))
+            elif role == "user":
+                lc_messages.append(HumanMessage(content=content))
+            elif role == "assistant":
+                lc_messages.append(AIMessage(content=content))
+            elif role == "tool":
+                lc_messages.append(ToolMessage(content=content, tool_call_id=msg.get("tool_call_id", "")))
+        response = self._get_client().invoke(lc_messages)
+        return {"content": response.content if hasattr(response, 'content') else str(response), "usage": {}}
+    
+    async def stream(self, messages: List[Dict], callback: Callable, **kwargs):
+        from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
+        lc_messages = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                lc_messages.append(SystemMessage(content=content))
+            elif role == "user":
+                lc_messages.append(HumanMessage(content=content))
+            elif role == "assistant":
+                lc_messages.append(AIMessage(content=content))
+            elif role == "tool":
+                lc_messages.append(ToolMessage(content=content, tool_call_id=msg.get("tool_call_id", "")))
+        accumulated = ""
+        async for chunk in self._get_client().astream(lc_messages):
+            content = chunk.content if hasattr(chunk, 'content') else str(chunk)
+            if content:
+                accumulated += content
+                await callback(content)
+        return {"content": accumulated, "usage": {}}
+    
+    def get_token_limit(self) -> int:
+        for m in PROVIDER_MODELS.get("openai", []):
+            if m.id == self.model:
+                return m.context_length
+        return 128000
+    
+    def supports_streaming(self) -> bool:
+        return True
+
+
 class ProviderManager:
     _providers: Dict[str, BaseProvider] = {}
     _default: str = "ollama"
@@ -451,24 +564,68 @@ class ProviderManager:
     def configure(cls, config: Dict):
         cls._config = config
         
+        # OpenAI
         cls._providers["openai"] = OpenAIProvider(
             api_key=config.get("openai", {}).get("api_key"),
             base_url=config.get("openai", {}).get("base_url") or "https://api.openai.com/v1",
-            model=config.get("openai", {}).get("model", "gpt-4"),
+            model=config.get("openai", {}).get("model", "gpt-4o"),
             timeout=config.get("openai", {}).get("timeout", 120.0),
         )
         
+        # Anthropic
         cls._providers["anthropic"] = AnthropicProvider(
             api_key=config.get("anthropic", {}).get("api_key"),
-            model=config.get("anthropic", {}).get("model", "claude-3-5-sonnet-latest"),
+            model=config.get("anthropic", {}).get("model", "claude-sonnet-4-20250514"),
             timeout=config.get("anthropic", {}).get("timeout", 120.0),
         )
         
+        # Ollama
         cls._providers["ollama"] = OllamaProvider(
             base_url=config.get("ollama", {}).get("base_url", "http://localhost:11434"),
             model=config.get("ollama", {}).get("model", "qwen2.5:latest"),
             timeout=config.get("ollama", {}).get("timeout", 300.0),
         )
+        
+        # OpenRouter
+        or_key = config.get("openrouter", {}).get("api_key") or os.getenv("OPENROUTER_API_KEY")
+        if or_key:
+            cls._providers["openrouter"] = OpenAICompatibleProvider(
+                api_key=or_key,
+                base_url=config.get("openrouter", {}).get("base_url", "https://openrouter.ai/api/v1"),
+                model=config.get("openrouter", {}).get("model", "openai/gpt-4o"),
+                timeout=config.get("openrouter", {}).get("timeout", 120.0),
+            )
+        
+        # Google Gemini (OpenAI-compatible endpoint)
+        google_key = config.get("google", {}).get("api_key") or os.getenv("GOOGLE_API_KEY")
+        if google_key:
+            cls._providers["google"] = OpenAICompatibleProvider(
+                api_key=google_key,
+                base_url=config.get("google", {}).get("base_url", "https://generativelanguage.googleapis.com/v1beta/openai/"),
+                model=config.get("google", {}).get("model", "gemini-2.5-flash-preview-04-17"),
+                timeout=config.get("google", {}).get("timeout", 120.0),
+            )
+        
+        # OpenAI-compatible providers
+        provider_configs = {
+            "groq": ("https://api.groq.com/openai/v1", "GROQ_API_KEY"),
+            "together": ("https://api.together.xyz/v1", "TOGETHER_API_KEY"),
+            "deepseek": ("https://api.deepseek.com", "DEEPSEEK_API_KEY"),
+            "perplexity": ("https://api.perplexity.ai", "PERPLEXITY_API_KEY"),
+            "xai": ("https://api.x.ai/v1", "XAI_API_KEY"),
+            "deepinfra": ("https://api.deepinfra.com/v1/openai", "DEEPINFRA_API_KEY"),
+            "mistral": ("https://api.mistral.ai/v1", "MISTRAL_API_KEY"),
+        }
+        
+        for provider_name, (base_url, env_key) in provider_configs.items():
+            api_key = config.get(provider_name, {}).get("api_key") or os.getenv(env_key)
+            if api_key:
+                cls._providers[provider_name] = OpenAICompatibleProvider(
+                    api_key=api_key,
+                    base_url=config.get(provider_name, {}).get("base_url", base_url),
+                    model=config.get(provider_name, {}).get("model", PROVIDER_MODELS.get(provider_name, [ModelInfo("default", "Default", provider_name)])[0].id),
+                    timeout=config.get(provider_name, {}).get("timeout", 120.0),
+                )
     
     @classmethod
     def get_provider(cls, name: str = None) -> Optional[BaseProvider]:
@@ -508,45 +665,80 @@ class ProviderManager:
     
     @classmethod
     def resolve_provider(cls, model: str, endpoint: str = None, is_local: bool = False) -> tuple[str, BaseProvider]:
-        if is_local or "localhost" in endpoint or "ollama" in endpoint:
+        if is_local or (endpoint and ("localhost" in endpoint or "ollama" in endpoint)):
             return "ollama", cls.get_provider("ollama")
         
-        if endpoint and "openrouter" in endpoint:
-            return "openrouter", OpenAIProvider(
-                api_key=cls._config.get("openrouter", {}).get("api_key"),
+        if endpoint:
+            for name, prov in cls._providers.items():
+                if name != "ollama" and hasattr(prov, 'base_url') and endpoint == prov.base_url:
+                    return name, prov
+            
+            if "openrouter" in endpoint:
+                return "openrouter", OpenAICompatibleProvider(
+                    api_key=cls._config.get("openrouter", {}).get("api_key") or os.getenv("OPENROUTER_API_KEY"),
+                    base_url=endpoint,
+                    model=model,
+                )
+            
+            if "groq" in endpoint:
+                return "groq", cls.get_provider("groq") or OpenAICompatibleProvider(api_key=os.getenv("GROQ_API_KEY"), base_url="https://api.groq.com/openai/v1", model=model)
+            
+            # Fallback: treat as OpenAI-compatible
+            return "openai", OpenAIProvider(
+                api_key=cls._config.get("openai", {}).get("api_key"),
                 base_url=endpoint,
                 model=model,
             )
         
-        if model.startswith("gpt") or "openai" in endpoint:
-            return "openai", cls.get_provider("openai")
-        
         if model.startswith("claude"):
             return "anthropic", cls.get_provider("anthropic")
+        
+        if model.startswith("gpt") or model.startswith("o3") or model.startswith("o4"):
+            return "openai", cls.get_provider("openai")
+        
+        if model.startswith("gemini"):
+            return "google", cls.get_provider("google") or OpenAIProvider(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", model=model, api_key=os.getenv("GOOGLE_API_KEY"))
+        
+        # Check if model matches a specific provider
+        model_lower = model.lower()
+        provider_model_map = {
+            "groq": ["llama-3.3", "llama-3.1", "mixtral", "deepseek-r1-distill"],
+            "deepseek": ["deepseek-chat", "deepseek-reasoner", "deepseek/"],
+            "together": ["together"],
+            "perplexity": ["sonar"],
+            "xai": ["grok"],
+            "deepinfra": ["deepinfra"],
+            "mistral": ["mistral", "codestral", "pixtral"],
+            "openrouter": ["openrouter", "/"],
+        }
+        
+        for provider_name, keywords in provider_model_map.items():
+            if any(kw in model_lower for kw in keywords):
+                prov = cls.get_provider(provider_name)
+                if prov:
+                    return provider_name, prov
         
         return cls._default, cls.get_provider(cls._default)
     
     @classmethod
     def create_streaming_llm(cls, model: str, endpoint: str = None, is_local: bool = True) -> BaseProvider:
-        if is_local or "localhost" in endpoint or "ollama" in endpoint:
+        if is_local or (endpoint and ("localhost" in endpoint or "ollama" in endpoint)):
             return OllamaProvider(
                 base_url=endpoint or "http://localhost:11434",
                 model=model,
             )
         
-        if endpoint and ("openai" in endpoint or "openrouter" in endpoint):
+        if endpoint:
             return OpenAIProvider(
                 base_url=endpoint,
                 model=model,
+                api_key=cls._config.get("openai", {}).get("api_key") or "not-needed",
             )
         
         if model.startswith("claude"):
             return AnthropicProvider(model=model)
         
-        return OllamaProvider(
-            base_url=endpoint or "http://localhost:11434",
-            model=model,
-        )
+        return OpenAIProvider(model=model)
 
 
 def init_providers():
@@ -566,6 +758,27 @@ def init_providers():
             "api_key": os.getenv("OPENROUTER_API_KEY", ""),
             "base_url": "https://openrouter.ai/api/v1",
         },
+        "groq": {
+            "api_key": os.getenv("GROQ_API_KEY", ""),
+        },
+        "together": {
+            "api_key": os.getenv("TOGETHER_API_KEY", ""),
+        },
+        "deepseek": {
+            "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
+        },
+        "perplexity": {
+            "api_key": os.getenv("PERPLEXITY_API_KEY", ""),
+        },
+        "xai": {
+            "api_key": os.getenv("XAI_API_KEY", ""),
+        },
+        "deepinfra": {
+            "api_key": os.getenv("DEEPINFRA_API_KEY", ""),
+        },
+        "mistral": {
+            "api_key": os.getenv("MISTRAL_API_KEY", ""),
+        },
     }
     
     ProviderManager.configure(config)
@@ -577,6 +790,7 @@ __all__ = [
     "OpenAIProvider",
     "AnthropicProvider",
     "OllamaProvider",
+    "OpenAICompatibleProvider",
     "ProviderType",
     "ModelInfo",
     "PROVIDER_MODELS",

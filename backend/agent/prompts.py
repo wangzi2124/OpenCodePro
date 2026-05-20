@@ -1,14 +1,74 @@
 import os
 
-# Compaction prompt - compress conversation history
-COMPACTION_PROMPT = """You are a conversation compaction agent. Your task is to analyze the conversation history and create a compressed version that preserves key information.
+_PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "prompts")
+_SESSION_PROMPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "session", "prompts")
+_TOOL_PROMPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "prompts")
+_COMMAND_TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "command", "templates")
 
-Instructions:
-1. Identify the key user requests and AI responses
-2. Extract important code snippets, decisions, and outcomes
-3. Summarize long tool outputs to their essence
-4. Keep file paths and important context
-5. Output ONLY the compacted conversation in the same format
+
+def _load_prompt(filepath: str, fallback: str = "") -> str:
+    """Load a prompt from a .txt file, returning fallback if not found."""
+    try:
+        if os.path.exists(filepath):
+            with open(filepath, "r", encoding="utf-8") as f:
+                return f.read().strip()
+    except Exception:
+        pass
+    return fallback
+
+
+def load_session_prompt(model_name: str) -> str:
+    """Load model-specific system prompt, falling back by model family then generic."""
+    model_lower = model_name.lower()
+    
+    family_map = {
+        "claude": "anthropic",
+        "anthropic": "anthropic",
+        "gpt": "beast",
+        "o1": "beast",
+        "o3": "beast",
+        "gemini": "gemini",
+        "qwen": "qwen",
+        "codestral": "beast",
+        "mixtral": "qwen",
+        "llama": "qwen",
+        "deepseek": "qwen",
+        "codex": "codex",
+        "copilot": "copilot-gpt-5",
+    }
+    
+    candidates = []
+    for key, filename in family_map.items():
+        if key in model_lower:
+            candidates.append(filename)
+    
+    # Try exact match, then family matches, then default to anthropic
+    for name in [model_lower] + candidates + ["anthropic"]:
+        filepath = os.path.join(_SESSION_PROMPTS_DIR, f"{name}.txt")
+        content = _load_prompt(filepath)
+        if content:
+            return content
+    
+    return _load_prompt(os.path.join(_SESSION_PROMPTS_DIR, "anthropic.txt"),
+                        fallback="You are OpenCode Pro, an AI coding assistant.")
+
+
+def load_tool_prompt(tool_name: str) -> str:
+    """Load a tool description prompt from .txt file."""
+    filepath = os.path.join(_TOOL_PROMPTS_DIR, f"{tool_name}.txt")
+    return _load_prompt(filepath)
+
+
+def load_command_template(name: str) -> str:
+    """Load a command template from .txt file."""
+    filepath = os.path.join(_COMMAND_TEMPLATES_DIR, f"{name}.txt")
+    return _load_prompt(filepath)
+
+
+# Agent prompts - loaded from .txt files with hardcoded fallbacks
+COMPACTION_PROMPT = _load_prompt(
+    os.path.join(_PROMPTS_DIR, "compaction.txt"),
+    fallback="""You are a conversation compaction agent. Create a compressed version that preserves key information.
 
 Preserve:
 - Original user intent
@@ -20,74 +80,70 @@ Remove:
 - Redundant explanations
 - Failed attempts
 - Verbose debugging steps"""
+)
 
-# Title prompt - generate conversation title
-TITLE_PROMPT = """You are a title generator. You output ONLY a thread title. Nothing else.
-
-Generate a brief title that would help the user find this conversation later.
+TITLE_PROMPT = _load_prompt(
+    os.path.join(_PROMPTS_DIR, "title.txt"),
+    fallback="""You are a title generator. Output ONLY a thread title. Nothing else.
 
 Rules:
-- Focus on the main topic or question
-- Use -ing verbs for actions (Debugging, Implementing, Analyzing)
-- Keep exact: technical terms, numbers, filenames
-- Remove: the, this, my, a, an
-- Never use tools
+- Use -ing verbs for actions
+- Keep technical terms exact
 - Output must be ≤50 characters
-- Never say you cannot generate a title
+- Never use tools"""
+)
 
-Examples:
-"debug 500 errors in production" → Debugging production 500 errors
-"refactor user service" → Refactoring user service
-"implement rate limiting" → Implementing rate limiting"""
+SUMMARY_PROMPT = _load_prompt(
+    os.path.join(_PROMPTS_DIR, "summary.txt"),
+    fallback="""Provide a comprehensive yet concise summary of the conversation.
 
-# Summary prompt - generate conversation summary
-SUMMARY_PROMPT = """You are a conversation summary agent. Your task is to provide a comprehensive yet concise summary of the conversation.
+Include: main goal, key actions, important outcomes, open items.
+Keep it brief (2-4 sentences)."""
+)
 
-Include:
-1. Main user request/goal
-2. Key actions taken
-3. Important outcomes or decisions
-4. Any remaining open items or follow-ups
+EXPLORE_PROMPT = _load_prompt(
+    os.path.join(_PROMPTS_DIR, "explore.txt"),
+    fallback="""You are a code exploration expert. Explore codebases quickly and accurately.
 
-Keep it brief (2-4 sentences max) and actionable."""
+1. Start broad, then narrow down
+2. Use glob patterns to find files
+3. Use grep to search patterns
+4. Provide file locations with line numbers"""
+)
 
-# Explore prompt - for exploring codebases
-EXPLORE_PROMPT = """You are a code exploration expert. Your task is to quickly and accurately explore codebases.
+GENERATE_PROMPT = _load_prompt(
+    os.path.join(_PROMPTS_DIR, "generate.txt"),
+    fallback="""You are an AI coding assistant. Write complete, working code.
 
-When exploring:
-1. Start with broad searches, then narrow down
-2. Use glob patterns to find relevant files
-3. Use grep to search for specific patterns
-4. Focus on understanding structure and key components
+Follow best practices, handle edge cases, include imports.
+Plan first, implement, then verify."""
+)
 
-Provide:
-- File locations with line numbers
-- Clear explanations of what code does
-- Connections between components
+# Session model prompts cache
+_MODEL_PROMPT_CACHE: dict = {}
 
-Be thorough but efficient. Prioritize finding the most relevant information first."""
+def get_model_prompt(model: str) -> str:
+    """Get cached model-specific system prompt."""
+    if model not in _MODEL_PROMPT_CACHE:
+        _MODEL_PROMPT_CACHE[model] = load_session_prompt(model)
+    return _MODEL_PROMPT_CACHE[model]
 
-# Generate prompt - for code generation
-GENERATE_PROMPT = """You are an AI coding assistant. Your task is to write complete, working code.
-
-Guidelines:
-1. Write complete, production-ready code
-2. Follow best practices for the language
-3. Include necessary imports and dependencies
-4. Handle edge cases and errors
-5. Add appropriate comments and documentation
-6. Test your code before responding
-
-When asked to implement:
-1. Understand the requirements fully
-2. Plan the implementation
-3. Write clean, working code
-4. Verify it works with available tools"""
+# Mode/management prompts
+PLAN_PROMPT = _load_prompt(os.path.join(_SESSION_PROMPTS_DIR, "plan.txt"), "")
+BUILD_SWITCH_PROMPT = _load_prompt(os.path.join(_SESSION_PROMPTS_DIR, "build-switch.txt"), "")
+MAX_STEPS_PROMPT = _load_prompt(os.path.join(_SESSION_PROMPTS_DIR, "max-steps.txt"), "")
 
 __all__ = [
     "COMPACTION_PROMPT",
-    "TITLE_PROMPT", 
+    "TITLE_PROMPT",
     "SUMMARY_PROMPT",
     "EXPLORE_PROMPT",
-    "GENERATE_PROMPT"
+    "GENERATE_PROMPT",
+    "PLAN_PROMPT",
+    "BUILD_SWITCH_PROMPT",
+    "MAX_STEPS_PROMPT",
+    "load_session_prompt",
+    "load_tool_prompt",
+    "load_command_template",
+    "get_model_prompt",
 ]

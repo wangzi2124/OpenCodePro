@@ -1,0 +1,8 @@
+Invoke a skill for specialized tasks.
+
+Parameters:
+- skill_name: Name of the skill to invoke (required)
+- context: Context dictionary to pass to the skill (optional)
+
+Available skills: read, write, refactor, debug, test, explain, review
+Custom skills can be added via .opencode/skills/*.json files.

@@ -26,7 +26,29 @@ src/                      # React + Vite frontend
 backend/                  # FastAPI backend
 ├── routes/proxy.py       # SSE streaming agent endpoint
 ├── provider/             # LLM providers + RetryHandler
-└── tools/chain_tools.py  # LangChain tools
+├── agent/                
+│   ├── prompts.py        # Prompt loader (loads from .txt files)
+│   └── prompts/          # Agent-specific prompt .txt files
+│       ├── explore.txt, compaction.txt, title.txt
+│       ├── summary.txt, generate.txt
+├── session/
+│   ├── session_manager.py
+│   └── prompts/          # Model-specific system prompt .txt files
+│       ├── anthropic.txt, beast.txt, codex.txt
+│       ├── gemini.txt, qwen.txt, plan.txt
+│       ├── build-switch.txt, max-steps.txt
+├── command/
+│   └── templates/        # Slash command template .txt files
+│       ├── initialize.txt, review.txt
+├── tools/
+│   ├── chain_tools.py    # LangChain tools
+│   └── prompts/          # Tool description .txt files
+│       ├── read.txt, write.txt, edit.txt, glob.txt
+│       ├── grep.txt, ls.txt, bash.txt, batch.txt
+│       ├── webfetch.txt, websearch.txt, patch.txt
+│       ├── multiedit.txt, lsp.txt, codesearch.txt
+│       ├── todoread.txt, todowrite.txt, skill.txt
+└── skills/skill_def.py   # 7 built-in skills
 ```
 
 ## SSE Events (Streaming)

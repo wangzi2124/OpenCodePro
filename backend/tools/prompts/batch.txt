@@ -1,0 +1,14 @@
+Execute multiple edit operations atomically. Apply multiple search-and-replace edits in a single batch.
+
+Parameters:
+- operations: List of edit operations, each with file_path, old_string, new_string (required)
+- description: Description of the batch operation (optional, default "Batch edit")
+
+Each operation follows the same rules as edit_file:
+- old_string must match exactly
+- File must have been read before editing
+
+Usage:
+- Use for coordinated changes across multiple files
+- All edits in a batch succeed or fail together
+- Good for renaming exports, updating imports, changing function signatures

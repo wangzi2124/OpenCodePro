@@ -7,7 +7,7 @@ import time
 import json
 from typing import List, Optional, Dict, Any, AsyncGenerator
 from pydantic import BaseModel
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 import httpx
 
@@ -24,7 +24,11 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, Tool
 from langchain_core.tools import tool, BaseTool
 
 from backend.agent.agent_def import AgentRegistry, AgentInfo, AgentMode, PermissionChecker
-from backend.agent.prompts import COMPACTION_PROMPT, TITLE_PROMPT, SUMMARY_PROMPT, EXPLORE_PROMPT, GENERATE_PROMPT
+from backend.agent.prompts import (
+    COMPACTION_PROMPT, TITLE_PROMPT, SUMMARY_PROMPT, EXPLORE_PROMPT, GENERATE_PROMPT,
+    PLAN_PROMPT, BUILD_SWITCH_PROMPT, MAX_STEPS_PROMPT,
+    load_session_prompt, load_tool_prompt, get_model_prompt,
+)
 from backend.session.session_manager import SessionManager
 from backend.project.project_manager import ProjectManager
 from backend.vcs.git_client import GitClient, GitError
@@ -32,6 +36,8 @@ from backend.mcp.mcp_client import MCPClient, MCPStatus
 from backend.skills.skill_def import SkillRegistry
 from backend.patch.patch_manager import PatchManager, PatchType
 from backend.storage.storage_manager import StorageManager
+from backend.bus.event_bus import EventBus, EventType, BusEvent
+from backend.snapshot.snapshot_manager import SnapshotManager, SnapshotDiff
 from backend.provider.provider_manager import (
     ProviderManager, RetryHandler, init_providers,
     OpenAIProvider, AnthropicProvider, OllamaProvider
@@ -131,24 +137,41 @@ VCS: {project_info.get('vcs', 'unknown')}"""
         project_ctx = self.get_project_context()
         user_ctx = self.get_user_context()
 
-        agent_prompts = {
-            "build": GENERATE_PROMPT,
-            "plan": "You are a technical planner. Analyze requirements and create plans.\n\nIMPORTANT: You are in READ-ONLY mode. Do NOT make any edits or run write operations. You may only read, search, and analyze.",
-            "explore": EXPLORE_PROMPT,
-            "general": "You are a research assistant. Use tools to find information and answer questions.",
-            "compaction": COMPACTION_PROMPT,
-            "title": TITLE_PROMPT,
-            "summary": SUMMARY_PROMPT,
-        }
-        agent_prompt = agent_prompts.get(agent_info.name, "You are an AI programming assistant.")
+        # Use model-specific system prompt for build agent, generic for others
+        if agent_info.name == "build":
+            base_prompt = get_model_prompt(self.req.model)
+        elif agent_info.name == "plan":
+            base_prompt = PLAN_PROMPT if PLAN_PROMPT else "You are a technical planner. Analyze requirements and create plans.\n\nIMPORTANT: You are in READ-ONLY mode. Do NOT make any edits or run write operations."
+        elif agent_info.name == "explore":
+            base_prompt = EXPLORE_PROMPT
+        elif agent_info.name == "general":
+            base_prompt = "You are a research assistant. Use tools to find information and answer questions."
+        elif agent_info.name == "compaction":
+            base_prompt = COMPACTION_PROMPT
+        elif agent_info.name == "title":
+            base_prompt = TITLE_PROMPT
+        elif agent_info.name == "summary":
+            base_prompt = SUMMARY_PROMPT
+        else:
+            base_prompt = GENERATE_PROMPT
 
-        tools_descs = [f"- {t.name}: {t.description or ''}" for t in get_tools()]
+        # Build tool descriptions from .txt files with fallback to inline
+        tools = get_tools()
+        tools_lines = []
+        for t in tools:
+            desc = load_tool_prompt(t.name)
+            if not desc:
+                desc = t.description or f"Tool: {t.name}"
+            tools_lines.append(f"## {t.name}\n{desc}")
 
-        return f"""{agent_prompt}
+        tools_section = "\n\n".join(tools_lines)
 
-Available tools:
-{chr(10).join(tools_descs)}
+        return f"""{base_prompt}
 
+# Available Tools
+{tools_section}
+
+# Project Context
 {project_ctx}
 
 {user_ctx}
@@ -328,30 +351,73 @@ async def stream_llm_response(
         yield sse_event("max-iterations", {"iterations": max_iterations, "accumulated": accumulated_text})
 
 
-def create_llm(model: str, endpoint: str, is_local: bool, api_key: str = None):
+_llm_cache: Dict[str, Any] = {}
+
+def get_cached_llm(model: str, endpoint: str, is_local: bool, api_key: str = None):
+    cache_key = f"{model}|{endpoint}|{str(is_local)}"
+    
+    if cache_key in _llm_cache:
+        return _llm_cache[cache_key]
+    
     if is_local or "localhost" in endpoint or "ollama" in endpoint:
         from langchain_ollama import ChatOllama
-        return ChatOllama(
+        llm = ChatOllama(
             model=model,
             base_url=endpoint,
             timeout=httpx.Timeout(300.0, connect=5.0),
+            keep_alive="5m",
         )
-    
-    if model.startswith("claude"):
+    elif model.startswith("claude"):
         from langchain_anthropic import ChatAnthropic
-        return ChatAnthropic(
+        llm = ChatAnthropic(
             model=model,
             api_key=api_key or os.getenv("ANTHROPIC_API_KEY", ""),
             timeout=httpx.Timeout(120.0, connect=10.0),
         )
+    else:
+        from langchain_openai import ChatOpenAI
+        llm = ChatOpenAI(
+            model=model,
+            base_url=endpoint,
+            api_key=api_key or "not-needed",
+            timeout=httpx.Timeout(120.0, connect=10.0),
+            streaming=True,
+        )
     
-    from langchain_openai import ChatOpenAI
-    return ChatOpenAI(
-        model=model,
-        base_url=endpoint,
-        api_key=api_key or "not-needed",
-        timeout=httpx.Timeout(120.0, connect=10.0),
-        streaming=True,
+    _llm_cache[cache_key] = llm
+    return llm
+
+def create_llm(model: str, endpoint: str, is_local: bool, api_key: str = None):
+    return get_cached_llm(model, endpoint, is_local, api_key)
+
+
+@router.get("/events")
+async def stream_events(session_id: str = Query(None)):
+    """SSE endpoint for real-time event streaming."""
+    queue: asyncio.Queue = asyncio.Queue(maxsize=100)
+    EventBus.subscribe_sse(queue)
+
+    async def event_stream():
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"data: {event.to_json()}\n\n"
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': time.time()}, ensure_ascii=False)}\n\n"
+                except asyncio.CancelledError:
+                    break
+        finally:
+            EventBus.unsubscribe_sse(queue)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
     )
 
 
@@ -373,6 +439,79 @@ async def run_agent(req: AgentRequest):
     ctx_engine = ContextEngine(req)
     agent_info = AgentRegistry.get(req.agent) or AgentRegistry.get("build")
 
+    async def process_subtasks(subtask_messages: list) -> None:
+        """Process pending subtasks, yielding events."""
+        task_keys = StorageManager.list("subtask:")
+        if not task_keys:
+            return
+
+        results = []
+        for key in task_keys:
+            task = StorageManager.get(key)
+            if not task or task.get("status") != "pending":
+                continue
+
+            task_id = task["id"]
+            subtask_results = []
+            
+            for i, sub in enumerate(task.get("subtasks", [task.get("description", "")])):
+                yield sse_event("thought", {"text": f"Processing subtask {i+1}: {sub[:80]}..."})
+                
+                sub_prompt = f"""You are an explorer sub-agent. Your task:
+{sub}
+
+Investigate thoroughly and return findings."""
+                
+                try:
+                    explore_llm = create_llm(req.model, req.endpoint, req.is_local, req.api_key)
+                    sub_messages = [
+                        SystemMessage(content=EXPLORE_PROMPT + "\n\nUse tools to investigate. Be thorough."),
+                        HumanMessage(content=sub_prompt)
+                    ]
+                    
+                    sub_iter = 0
+                    sub_max_iter = 8
+                    sub_result = ""
+                    
+                    while sub_iter < sub_max_iter:
+                        if abort_event.is_set():
+                            break
+                        sub_iter += 1
+                        
+                        sub_response = await asyncio.to_thread(explore_llm.bind_tools(tools).invoke, sub_messages)
+                        sub_tool_calls = getattr(sub_response, 'tool_calls', None) or []
+                        
+                        if not sub_tool_calls:
+                            sub_result = getattr(sub_response, 'content', '') or ""
+                            break
+                        
+                        for sub_tc in sub_tool_calls:
+                            sub_tool = next((t for t in tools if t.name == sub_tc.get('name', '')), None)
+                            if sub_tool:
+                                try:
+                                    sub_r = sub_tool.invoke(sub_tc.get('args', {}))
+                                    sub_messages.append(sub_response)
+                                    sub_messages.append(ToolMessage(content=str(sub_r), tool_call_id=sub_tc.get('id', '')))
+                                except Exception:
+                                    sub_messages.append(sub_response)
+                                    sub_messages.append(ToolMessage(content="Error executing tool", tool_call_id=sub_tc.get('id', '')))
+                    
+                    subtask_results.append(sub_result or "Completed with available information.")
+                except Exception as e:
+                    subtask_results.append(f"Subtask error: {e}")
+            
+            combined = "\n".join(f"--- Subtask {i+1} Result ---\n{r}" for i, r in enumerate(subtask_results))
+            result_text = f"Task {task_id} Results:\n{combined}"
+            
+            StorageManager.set(key, {**task, "status": "completed", "result": result_text})
+            results.append(result_text)
+        
+        if results:
+            full_result = "\n\n".join(results)
+            yield sse_event("text-delta", {"text": f"\n\n[Subtask Results]\n{full_result}\n"})
+            subtask_messages.append(SystemMessage(content=f"Previous subtask results for context:\n{full_result}"))
+
+
     async def event_generator():
         abort_event = asyncio.Event()
         accumulated_text = ""
@@ -393,6 +532,13 @@ async def run_agent(req: AgentRequest):
             messages = ctx_engine.truncate_if_needed(messages)
 
             logger.info(f"[MODEL_INPUT] Request: {req.query[:200]}... (messages: {len(messages)})")
+
+            EventBus.publish(EventType.AGENT_START, {
+                "session_id": session_id,
+                "model": req.model,
+                "agent": req.agent,
+                "query": req.query[:200],
+            })
 
             yield sse_event("start", {
                 "session_id": session_id,
@@ -425,11 +571,23 @@ async def run_agent(req: AgentRequest):
                     tool_calls = getattr(response, 'tool_calls', None) or []
                     
                     if tool_calls:
+                        has_task_delegate = False
+                        for tc in tool_calls:
+                            if tc.get('name', '') == 'task_delegate':
+                                has_task_delegate = True
+                                break
+                        
                         for tc in tool_calls:
                             tool_name = tc.get('name', '')
                             tool_args = tc.get('args', {})
                             tool_call_id = tc.get('id', '')
                             
+                            EventBus.publish(EventType.TOOL_START, {
+                                "tool": tool_name,
+                                "args": tool_args,
+                                "session_id": session_id,
+                            })
+
                             yield sse_event("tool-start", {
                                 "tool": tool_name,
                                 "args": tool_args,
@@ -461,11 +619,32 @@ async def run_agent(req: AgentRequest):
                                 messages.append(ToolMessage(content=result, tool_call_id=tool_call_id))
                                 continue
                             
+                            # Auto-snapshot files before write/edit operations
+                            if tool_name in ("write_file", "edit_file", "batch_edit", "multiedit"):
+                                if tool_name == "write_file":
+                                    fp = tool_args.get("file_path", "")
+                                    if fp:
+                                        SnapshotManager.take_snapshot(fp, session_id)
+                                elif tool_name == "edit_file":
+                                    fp = tool_args.get("file_path", "")
+                                    if fp:
+                                        SnapshotManager.take_snapshot(fp, session_id)
+                                elif tool_name in ("batch_edit", "multiedit"):
+                                    for edit in (tool_args.get("edits", []) or []):
+                                        fp = edit.get("file_path", "")
+                                        if fp:
+                                            SnapshotManager.take_snapshot(fp, session_id)
+
                             tool_obj = next((t for t in tools if t.name == tool_name), None)
                             if tool_obj:
                                 try:
                                     result = tool_obj.invoke(tool_args)
                                     logger.info(f"[TOOL_RESULT] {tool_name}: {str(result)[:200]}...")
+                                    EventBus.publish(EventType.TOOL_END, {
+                                        "tool": tool_name,
+                                        "session_id": session_id,
+                                        "status": "completed",
+                                    })
                                     yield sse_event("tool-end", {
                                         "tool": tool_name,
                                         "call_id": tool_call_id,
@@ -497,6 +676,12 @@ async def run_agent(req: AgentRequest):
                                 messages.append(ToolMessage(content=error_msg, tool_call_id=tool_call_id))
                         
                         yield sse_event("tool-loop-complete", {"iteration": iteration})
+                        
+                        # Process pending subtasks after task_delegate calls
+                        if has_task_delegate:
+                            async for event in process_subtasks(messages):
+                                yield event
+                        
                         continue
                     
                     output = getattr(response, 'content', '') or ""
@@ -528,6 +713,10 @@ async def run_agent(req: AgentRequest):
                         continue
                     
                     logger.error(f"[ERROR] {error_msg}")
+                    EventBus.publish(EventType.AGENT_ERROR, {
+                        "session_id": session_id,
+                        "error": error_msg,
+                    })
                     yield sse_event("error", {"message": error_msg, "type": type(e).__name__})
                     break
             
@@ -544,6 +733,13 @@ async def run_agent(req: AgentRequest):
                 "updated_at": time.time()
             })
             logger.info(f"[SESSION] Saved {len(new_messages[-MAX_MESSAGES:])} messages")
+
+            EventBus.publish(EventType.AGENT_COMPLETE, {
+                "session_id": session_id,
+                "model": req.model,
+                "agent": req.agent,
+                "iterations": iteration,
+            })
 
             yield sse_event("complete", {"session_id": session_id})
             
@@ -775,3 +971,67 @@ async def list_patches():
 async def revert_patch(patch_id: str = None, dry_run: bool = False):
     result = PatchManager.revert(patch_id, dry_run)
     return result
+
+
+@router.post("/snapshot/take")
+async def take_snapshot(file_path: str, session_id: str = "default"):
+    snapshot = SnapshotManager.take_snapshot(file_path, session_id)
+    if not snapshot:
+        return {"error": f"File not found: {file_path}"}
+    return {
+        "path": snapshot.path,
+        "hash": snapshot.content_hash,
+        "size": snapshot.size,
+        "timestamp": snapshot.timestamp,
+    }
+
+
+@router.get("/snapshot/diff")
+async def get_snapshot_diff(file_path: str, session_id: str = "default"):
+    diff = SnapshotManager.diff_snapshot(file_path, session_id)
+    if not diff:
+        return {"error": f"No snapshot for: {file_path}"}
+    return {
+        "path": diff.path,
+        "modified": diff.modified,
+        "added_lines": len(diff.added_lines),
+        "removed_lines": len(diff.removed_lines),
+        "added": diff.added_lines[:20],
+        "removed": diff.removed_lines[:20],
+    }
+
+
+@router.get("/snapshot/changed")
+async def get_changed_files(session_id: str = "default"):
+    changes = SnapshotManager.get_changed_files(session_id)
+    return {
+        "session_id": session_id,
+        "changes": [
+            {
+                "path": c.path,
+                "modified": c.modified,
+                "added": len(c.added_lines),
+                "removed": len(c.removed_lines),
+            }
+            for c in changes
+        ],
+        "count": len(changes),
+    }
+
+
+@router.post("/snapshot/revert")
+async def revert_snapshot(file_path: str, session_id: str = "default"):
+    success = SnapshotManager.revert_file(file_path, session_id)
+    return {"success": success, "path": file_path}
+
+
+@router.post("/snapshot/clear")
+async def clear_snapshots(session_id: str = "default"):
+    SnapshotManager.clear_session(session_id)
+    return {"status": "cleared", "session_id": session_id}
+
+
+@router.get("/snapshot/list")
+async def list_snapshots(session_id: str = "default"):
+    files = SnapshotManager.list_session_snapshots(session_id)
+    return {"session_id": session_id, "files": files, "count": len(files)}

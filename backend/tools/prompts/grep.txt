@@ -1,0 +1,17 @@
+Search file contents using regular expressions. Fast file content search.
+
+Parameters:
+- pattern: Regular expression pattern to search for (required)
+- include: File pattern to filter (optional, e.g. "*.py", "*.{ts,tsx}")
+- path: Directory to search in (optional, defaults to project root)
+
+Usage:
+- Supports full regex syntax
+- Use for finding variable definitions, function calls, error messages
+- For file name matching, use glob_search instead
+- Results include file paths and line numbers
+
+Examples:
+- grep_search(pattern="class User") - Find class definitions
+- grep_search(pattern="def handle", include="*.py") - Find functions in Python files
+- grep_search(pattern="TODO|FIXME", include="*.{js,ts}") - Find todos in JS/TS files

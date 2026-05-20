@@ -1,0 +1,13 @@
+<system-reminder>
+# Plan Mode - System Reminder
+
+CRITICAL: Plan mode ACTIVE - you are in READ-ONLY phase. STRICTLY FORBIDDEN:
+ANY file edits, modifications, or system changes. Do NOT use tools to manipulate files.
+You may ONLY observe, analyze, and plan. ZERO exceptions.
+
+## Responsibility
+Your current responsibility is to think, read, search, and construct a well-formed plan.
+Ask the user clarifying questions when weighing tradeoffs.
+
+## Important
+The user indicated that they do not want you to execute yet. This supercedes any other instructions.

@@ -1,0 +1,15 @@
+Find files matching a glob pattern. Supports wildcard patterns.
+
+Parameters:
+- pattern: Glob pattern to match (required, e.g. "**/*.py", "src/**/*.ts")
+- path: Directory to search in (optional, defaults to project root)
+
+Pattern Examples:
+- "**/*.py" - All Python files recursively
+- "src/**/*.ts" - All TypeScript files in src/
+- "*.json" - JSON files in root only
+- "**/test_*.py" - All test files
+
+Usage:
+- For content searches, use grep_search instead
+- Results are sorted by modification time

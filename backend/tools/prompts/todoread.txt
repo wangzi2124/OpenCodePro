@@ -1,0 +1,3 @@
+Read the current todo list for the active session. Returns planned and completed tasks.
+
+No parameters required.
