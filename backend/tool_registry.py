@@ -17,7 +17,7 @@ class ToolType(str, Enum):
 
 class ToolCategory(str, Enum):
     FILE = "file"
-    SEARCH = "search" 
+    SEARCH = "search"
     WEB = "web"
     BASH = "bash"
     EDITOR = "editor"
@@ -60,7 +60,7 @@ class ToolInfo:
 
     async def execute(self, args: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            result = self.execute_fn(**args)
+            result = self.execute_fn.invoke(args) if hasattr(self.execute_fn, 'invoke') else self.execute_fn(**args)
             if inspect.iscoroutine(result):
                 result = await result
             return {"success": True, "result": result}
@@ -71,6 +71,7 @@ class ToolInfo:
 class ToolRegistry:
     _tools: Dict[str, ToolInfo] = {}
     _custom_tools: List[ToolInfo] = []
+    _initialized: bool = False
 
     @classmethod
     def register(cls, tool: ToolInfo):
@@ -84,11 +85,14 @@ class ToolRegistry:
 
         parameters = {}
         for param_name, param in sig.parameters.items():
-            parameters[param_name] = {
+            param_info = {
                 "type": "string",
                 "required": param.default == inspect.Parameter.empty,
-                "description": "",
+                "description": cls._extract_param_description(doc, param_name),
             }
+            if param.default != inspect.Parameter.empty:
+                param_info["default"] = param.default
+            parameters[param_name] = param_info
 
         tool = ToolInfo(
             id=tool_id,
@@ -100,6 +104,35 @@ class ToolRegistry:
         )
         cls.register(tool)
         return func
+
+    @staticmethod
+    def _extract_param_description(doc: str, param_name: str) -> str:
+        """Extract parameter description from docstring."""
+        if not doc:
+            return ""
+
+        lines = doc.split("\n")
+        in_args = False
+        for line in lines:
+            line = line.strip()
+            if line.lower().startswith("args:") or line.lower().startswith("parameters:"):
+                in_args = True
+                continue
+            if in_args:
+                if line.startswith(param_name + ":") or line.startswith(param_name + " "):
+                    rest = line[len(param_name):].strip(": ")
+                    return rest
+                elif line and not line.startswith("    ") and not line.startswith("\t"):
+                    in_args = False
+
+        return ""
+
+    @classmethod
+    def register_langchain_tools(cls, tools: List[Any]):
+        """Register LangChain @tool decorated functions."""
+        for t in tools:
+            if hasattr(t, 'name') and hasattr(t, 'func'):
+                cls.register_function(t.func, t.name, ToolCategory.FILE)
 
     @classmethod
     def get(cls, name: str) -> Optional[ToolInfo]:
@@ -132,10 +165,15 @@ class ToolRegistry:
             props = {}
             required = []
             for name, info in tool.parameters.items():
-                props[name] = {"type": info.get("type", "string"), "description": info.get("description", "")}
+                prop = {"type": info.get("type", "string")}
+                if "description" in info and info["description"]:
+                    prop["description"] = info["description"]
+                if "default" in info:
+                    prop["default"] = info["default"]
+                props[name] = prop
                 if info.get("required", True):
                     required.append(name)
-            
+
             schema = {
                 "type": "function",
                 "function": {
@@ -170,3 +208,9 @@ def tool(name: str = None, category: ToolCategory = ToolCategory.FILE):
     def decorator(func: Callable) -> Callable:
         return tool_registry.register_function(func, name, category)
     return decorator
+
+
+def init_tools():
+    """Initialize and register all tools."""
+    from backend.tools.chain_tools import TOOL_REGISTRY
+    tool_registry.register_langchain_tools(TOOL_REGISTRY)

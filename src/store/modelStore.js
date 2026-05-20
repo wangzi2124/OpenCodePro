@@ -2,14 +2,16 @@ import { create } from 'zustand'
 import { ModelProvider } from '../types'
 
 const defaultModels = [
-  { id: 'qwen2.5:latest', name: 'Qwen 2.5 (Local)', provider: ModelProvider.CUSTOM, endpoint: 'http://localhost:11434', apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 512, isLocal: true },
-  { id: 'llama2:latest', name: 'Llama 2 (Local)', provider: ModelProvider.CUSTOM, endpoint: 'http://localhost:11434', apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096, isLocal: true },
+  { id: 'llama3:latest', name: 'llama3 (Local)', provider: ModelProvider.CUSTOM, endpoint: 'http://localhost:11434', apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 512, isLocal: true },
+  { id: 'mistral:latest', name: 'mistral (Local)', provider: ModelProvider.CUSTOM, endpoint: 'http://localhost:11434', apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096, isLocal: true },
+  { id: 'qwen2.5-coder:latest', name: 'qwen2.5-coder (Local)', provider: ModelProvider.CUSTOM, endpoint: 'http://localhost:11434', apiKey: '', temperature: 0.7, topP: 0.9, maxTokens: 4096, isLocal: true },
+
 ]
 
 export const useModelStore = create((set, get) => ({
   models: defaultModels,
   customModels: [],
-  activeModelId: 'qwen2.5:latest',
+  activeModelId: 'llama3:latest',
 
   setActiveModel: (modelId) => set({ activeModelId: modelId }),
 
