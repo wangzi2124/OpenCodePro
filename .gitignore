@@ -5,3 +5,5 @@ logs/
 *.log
 *.pyc
 *.pyo
+__pycache__/
+*.cpython-*.pyc
